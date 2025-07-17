@@ -7,4 +7,4 @@ All notable changes to this project will be documented in this file.
 
 ### Features
 
-* initial commit ([794f345](https://github.com/forepath/kublade/commit/794f3453681585ba50ac37aadd59cd9b0db2fb32))
+* initial commit ([0cc9364](https://github.com/forepath/kublade/commit/0cc936499866f3daf5211cef9574996b72882635))
