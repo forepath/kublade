@@ -25,6 +25,7 @@
         "ext-yaml": "*",
         "ext-zlib": "*",
         "bchalier/php-k8s": "^3.11",
+        "forepath/laravel-s3-server": "^1.2",
         "laravel/framework": "^12.0",
         "laravel/horizon": "^5.31",
         "laravel/socialite": "^5.21",
