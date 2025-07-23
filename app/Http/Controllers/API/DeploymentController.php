@@ -263,6 +263,7 @@ class DeploymentController extends Controller
             ) &&
             ! empty(
                 $template = Template::where('id', '=', $request->template_id)
+                    ->where('type', '=', 'application')
                     ->first()
             ) &&
             ! empty(

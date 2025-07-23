@@ -30,15 +30,16 @@ class TemplateController extends Controller
     /**
      * Show the template dashboard.
      *
-     * @param string $template_id
-     * @param string $file_id
+     * @param Request $request
+     * @param string  $template_id
+     * @param string  $file_id
      *
      * @return \Illuminate\Contracts\Support\Renderable
      */
-    public function page_index(string $template_id = null, string $file_id = null)
+    public function page_index(Request $request, ?string $template_id = null, ?string $file_id = null)
     {
         return view('template.index', [
-            'templates' => Template::paginate(10),
+            'templates' => Template::where('type', $request->type ?? 'application')->paginate(10),
             'template'  => $template_id ? Template::where('id', $template_id)->first() : null,
             'file'      => $file_id ? TemplateFile::where('id', $file_id)->first() : null,
         ]);
@@ -64,6 +65,7 @@ class TemplateController extends Controller
     public function action_add(Request $request)
     {
         Validator::make($request->toArray(), [
+            'type'   => ['required', 'string', 'in:application,cluster'],
             'name'   => ['required', 'string', 'max:255'],
             'netpol' => ['nullable', 'boolean'],
         ])->validate();
@@ -71,6 +73,7 @@ class TemplateController extends Controller
         if (
             $template = Template::create([
                 'user_id' => Auth::id(),
+                'type'    => $request->type,
                 'name'    => $request->name,
                 'netpol'  => ! empty($request->netpol),
             ])
@@ -145,7 +148,7 @@ class TemplateController extends Controller
                 $template->gitCredentials()->delete();
             }
 
-            return redirect()->route('template.index')->with('success', __('Template updated.'));
+            return redirect()->route('template.index', ['type' => $template->type])->with('success', __('Template updated.'));
         }
 
         return redirect()->back()->with('warning', __('Ooops, something went wrong.'));
@@ -164,7 +167,7 @@ class TemplateController extends Controller
             $template->gitCredentials()->delete();
             $template->delete();
 
-            return redirect()->route('template.index')->with('success', __('Template deleted.'));
+            return redirect()->route('template.index', ['type' => $template->type])->with('success', __('Template deleted.'));
         }
 
         return redirect()->back()->with('warning', __('Ooops, something went wrong.'));
@@ -769,8 +772,14 @@ class TemplateController extends Controller
      */
     public function page_add_port(string $template_id)
     {
+        $template = Template::where('id', $template_id)->first();
+
+        if ($template->type == 'cluster') {
+            return redirect()->back()->with('warning', __('Cluster templates do not support ports.'));
+        }
+
         return view('template.add-port', [
-            'template' => Template::where('id', $template_id)->first(),
+            'template' => $template,
         ]);
     }
 
@@ -792,8 +801,14 @@ class TemplateController extends Controller
             'random'         => ['nullable', 'boolean'],
         ])->validate();
 
+        $template = Template::where('id', $template_id)->first();
+
+        if ($template->type == 'cluster') {
+            return redirect()->back()->with('warning', __('Cluster templates do not support ports.'));
+        }
+
         TemplatePort::create([
-            'template_id'    => $request->template_id,
+            'template_id'    => $template->id,
             'group'          => $request->group,
             'claim'          => $request->claim,
             'preferred_port' => $request->preferred_port,
@@ -883,6 +898,10 @@ class TemplateController extends Controller
      */
     public function page_import()
     {
+        if (request()->type == 'cluster') {
+            return redirect()->back()->with('warning', __('Cluster templates do not support imports.'));
+        }
+
         return view('template.import');
     }
 
@@ -950,7 +969,8 @@ class TemplateController extends Controller
      */
     public function action_sync(Request $request)
     {
-        $validator = Validator::make($request->toArray(), [
+        Validator::make($request->toArray(), [
+            'type'            => ['required', 'string', 'in:application,cluster'],
             'name'            => ['required', 'string', 'max:255'],
             'netpol'          => ['nullable', 'boolean'],
             'git'             => ['required', 'array'],
@@ -960,11 +980,12 @@ class TemplateController extends Controller
             'git.username'    => ['required', 'string', 'max:255'],
             'git.email'       => ['required', 'email', 'max:255'],
             'git.base_path'   => ['required', 'string', 'max:255'],
-        ]);
+        ])->validate();
 
         if (
             $template = Template::create([
                 'user_id' => Auth::id(),
+                'type'    => $request->type,
                 'name'    => $request->name,
                 'netpol'  => ! empty($request->netpol),
             ])

@@ -97,6 +97,7 @@ class TemplateController extends Controller
      *     tags={"Templates"},
      *
      *     @OA\Parameter(ref="#/components/parameters/cursor"),
+     *     @OA\Parameter(ref="#/components/parameters/type", default="application"),
      *
      *     @OA\Response(
      *         response=200,
@@ -125,11 +126,13 @@ class TemplateController extends Controller
      *     @OA\Response(response=500, ref="#/components/responses/ServerErrorResponse")
      * )
      *
+     * @param Request $request
+     *
      * @return \Illuminate\Contracts\Support\Renderable
      */
-    public function action_list()
+    public function action_list(Request $request)
     {
-        $templates = Template::cursorPaginate(10);
+        $templates = Template::where('type', $request->type ?? 'application')->cursorPaginate(10);
 
         return Response::generate(200, 'success', 'Templates retrieved successfully', [
             'templates' => collect($templates->items())->map(function ($item) {
@@ -245,6 +248,7 @@ class TemplateController extends Controller
     public function action_add(Request $request)
     {
         $validator = Validator::make($request->toArray(), [
+            'type'   => ['required', 'string', 'in:application,cluster'],
             'name'   => ['required', 'string', 'max:255'],
             'netpol' => ['nullable', 'boolean'],
         ]);
@@ -256,6 +260,7 @@ class TemplateController extends Controller
         if (
             $template = Template::create([
                 'user_id' => Auth::id(),
+                'type'    => $request->type,
                 'name'    => $request->name,
                 'netpol'  => ! empty($request->netpol),
             ])
@@ -413,6 +418,7 @@ class TemplateController extends Controller
     public function action_sync(Request $request)
     {
         $validator = Validator::make($request->toArray(), [
+            'type'            => ['required', 'string', 'in:application,cluster'],
             'name'            => ['required', 'string', 'max:255'],
             'netpol'          => ['nullable', 'boolean'],
             'git'             => ['required', 'array'],
@@ -431,6 +437,7 @@ class TemplateController extends Controller
         if (
             $template = Template::create([
                 'user_id' => Auth::id(),
+                'type'    => $request->type,
                 'name'    => $request->name,
                 'netpol'  => ! empty($request->netpol),
             ])
@@ -2259,9 +2266,15 @@ class TemplateController extends Controller
             return Response::generate(400, 'error', 'Validation failed', $validator->errors());
         }
 
+        $template = Template::where('id', $template_id)->first();
+
+        if ($template->type == 'cluster') {
+            return Response::generate(400, 'error', 'Cluster templates do not support ports');
+        }
+
         if (
             $port = TemplatePort::create([
-                'template_id'    => $request->template_id,
+                'template_id'    => $template->id,
                 'group'          => $request->group,
                 'claim'          => $request->claim,
                 'preferred_port' => $request->preferred_port,

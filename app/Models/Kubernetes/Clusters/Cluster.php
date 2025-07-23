@@ -9,6 +9,7 @@ use App\Models\Kubernetes\Metrics\ClusterMetricNode;
 use App\Models\Kubernetes\Resources\Node;
 use App\Models\Projects\Deployments\Deployment;
 use App\Models\Projects\Projects\Project;
+use App\Models\Projects\Templates\Template;
 use App\Models\User;
 use App\Traits\LogsActivity;
 use Carbon\Carbon;
@@ -31,7 +32,15 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *     @OA\Property(property="id", type="string", format="uuid", example="123e4567-e89b-12d3-a456-426614174000"),
  *     @OA\Property(property="user_id", type="string", format="uuid", example="123e4567-e89b-12d3-a456-426614174000"),
  *     @OA\Property(property="project_id", type="string", format="uuid", example="123e4567-e89b-12d3-a456-426614174000"),
+ *     @OA\Property(property="template_id", type="string", format="uuid", example="123e4567-e89b-12d3-a456-426614174000"),
  *     @OA\Property(property="name", type="string", example="Cluster 1"),
+ *     @OA\Property(property="update", type="boolean", example=false),
+ *     @OA\Property(property="delete", type="boolean", example=false),
+ *     @OA\Property(property="deployed_at", type="string", format="date-time", example="2021-01-01 00:00:00", nullable=true),
+ *     @OA\Property(property="deployment_updated_at", type="string", format="date-time", example="2021-01-01 00:00:00", nullable=true),
+ *     @OA\Property(property="creation_dispatched_at", type="string", format="date-time", example="2021-01-01 00:00:00", nullable=true),
+ *     @OA\Property(property="update_dispatched_at", type="string", format="date-time", example="2021-01-01 00:00:00", nullable=true),
+ *     @OA\Property(property="deletion_dispatched_at", type="string", format="date-time", example="2021-01-01 00:00:00", nullable=true),
  *     @OA\Property(property="created_at", type="string", format="date-time", example="2021-01-01 00:00:00", nullable=true),
  *     @OA\Property(property="updated_at", type="string", format="date-time", example="2021-01-01 00:00:00", nullable=true),
  *     @OA\Property(property="deleted_at", type="string", format="date-time", example="2021-01-01 00:00:00", nullable=true),
@@ -43,6 +52,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $user_id
  * @property string $project_id
  * @property string $name
+ * @property bool   $update
+ * @property bool   $delete
+ * @property Carbon $deployed_at
+ * @property Carbon $deployment_updated_at
+ * @property Carbon $creation_dispatched_at
+ * @property Carbon $update_dispatched_at
+ * @property Carbon $deletion_dispatched_at
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property Carbon $deleted_at
@@ -71,6 +87,22 @@ class Cluster extends Model
     ];
 
     /**
+     * The attributes that should be cast to native types.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'update'                 => 'boolean',
+        'delete'                 => 'boolean',
+        'approved_at'            => 'datetime',
+        'deployed_at'            => 'datetime',
+        'deployment_updated_at'  => 'datetime',
+        'creation_dispatched_at' => 'datetime',
+        'update_dispatched_at'   => 'datetime',
+        'deletion_dispatched_at' => 'datetime',
+    ];
+
+    /**
      * Relation to user.
      *
      * @return HasOne
@@ -88,6 +120,16 @@ class Cluster extends Model
     public function project(): HasOne
     {
         return $this->hasOne(Project::class, 'id', 'project_id');
+    }
+
+    /**
+     * Relation to template.
+     *
+     * @return HasOne
+     */
+    public function template(): HasOne
+    {
+        return $this->hasOne(Template::class, 'id', 'template_id');
     }
 
     /**
@@ -171,6 +213,26 @@ class Cluster extends Model
     }
 
     /**
+     * Relation to deployment data.
+     *
+     * @return HasMany
+     */
+    public function clusterData(): HasMany
+    {
+        return $this->hasMany(ClusterData::class, 'cluster_id', 'id');
+    }
+
+    /**
+     * Relation to deployment secret data.
+     *
+     * @return HasMany
+     */
+    public function clusterSecretData(): HasMany
+    {
+        return $this->hasMany(ClusterSecretData::class, 'cluster_id', 'id');
+    }
+
+    /**
      * Get the utility namespace.
      *
      * @return Ns|null
@@ -237,6 +299,26 @@ class Cluster extends Model
      */
     public function getStatusAttribute(): string
     {
+        if ($this->template) {
+            if ($this->delete) {
+                return Status::STATUS_DELETING;
+            }
+
+            if (! $this->approved_at) {
+                return Status::STATUS_APPROVING;
+            }
+
+            if ($this->update) {
+                return Status::STATUS_UPDATING;
+            }
+
+            if ($this->deployed_at) {
+                return $this->statuses()->orderByDesc('created_at')->first()?->status ?? Status::STATUS_OFFLINE;
+            }
+
+            return Status::STATUS_PENDING;
+        }
+
         return $this->statuses()->orderByDesc('created_at')->first()?->status ?? Status::STATUS_OFFLINE;
     }
 

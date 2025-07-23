@@ -4,7 +4,7 @@
 <div class="container">
     <div class="row mb-3">
         <div class="col-md-12">
-            <a href="{{ route('template.index') }}" class="btn btn-sm btn-secondary text-white">
+            <a href="{{ route('template.index', ['type' => $template->type]) }}" class="btn btn-sm btn-secondary text-white">
                 <i class="bi bi-arrow-left"></i>
             </a>
         </div>
@@ -32,13 +32,15 @@
                             </div>
                         </div>
 
-                        <div class="row mb-3">
-                            <label for="netpol" class="col-md-4 col-form-label text-md-end">{{ __('Enable network policy') }}</label>
+                        @if ($template->type == 'application')
+                            <div class="row mb-3">
+                                <label for="netpol" class="col-md-4 col-form-label text-md-end">{{ __('Enable network policy') }}</label>
 
-                            <div class="col-md-6 d-flex align-items-center">
-                                <input id="netpol" type="checkbox" class="form-check-input @error('netpol') is-invalid @enderror" name="netpol" value="1" {{ old('netpol') ?? $template->netpol ? 'checked' : '' }}>
+                                <div class="col-md-6 d-flex align-items-center">
+                                    <input id="netpol" type="checkbox" class="form-check-input @error('netpol') is-invalid @enderror" name="netpol" value="1" {{ old('netpol') ?? $template->netpol ? 'checked' : '' }}>
+                                </div>
                             </div>
-                        </div>
+                        @endif
 
                         @if ($template->gitCredentials)
                             <div class="border rounded py-4 mb-3" id="git-credentials">

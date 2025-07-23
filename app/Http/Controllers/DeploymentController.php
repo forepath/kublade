@@ -231,7 +231,7 @@ class DeploymentController extends Controller
     {
         return view('deployment.add', [
             'clusters'  => Cluster::all(),
-            'templates' => Template::all(),
+            'templates' => Template::where('type', '=', 'application')->get(),
         ]);
     }
 
@@ -262,6 +262,7 @@ class DeploymentController extends Controller
             ) &&
             ! empty(
                 $template = Template::where('id', '=', $request->template_id)
+                    ->where('type', '=', 'application')
                     ->first()
             ) &&
             ! empty(

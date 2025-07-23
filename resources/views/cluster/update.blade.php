@@ -32,6 +32,215 @@
                             </div>
                         </div>
 
+                        @if ($cluster->template_id)
+                            <div class="border rounded py-4 mb-3" id="provisioning">
+                                <div class="row mb-3">
+                                    <div class="col-md-6 offset-md-4">
+                                        <h5>{{ __('Provisioning') }}</h5>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <label for="template" class="col-md-4 col-form-label text-md-end">{{ __('Template') }}</label>
+
+                                    <div class="col-md-6">
+                                        <input id="template" type="text" class="form-control" value="{{ $cluster->template->name }}" required readonly>
+                                    </div>
+                                </div>
+
+                                @if ($cluster->template->groupedFields->on_update->default->count() > 0 || $cluster->template->groupedFields->on_update->advanced->count() > 0)
+                                    <div class="mt-3 fields" id="fields{{ $cluster->template->id }}">
+                                        @if ($cluster->template->groupedFields->on_update->default->count() > 0)
+                                            @foreach ($cluster->template->groupedFields->on_update->default as $field)
+                                                @if ($field->secret)
+                                                    @php
+                                                        $value = $cluster->clusterSecretData->where('key', $field->key)->first()?->value;
+                                                    @endphp
+                                                @else
+                                                    @php
+                                                        $value = $cluster->clusterData->where('key', $field->key)->first()?->value;
+                                                    @endphp
+                                                @endif
+
+                                                <div class="row mb-3">
+                                                    @if ($field->type !== 'input_checkbox')
+                                                        <label class="col-md-4 col-form-label text-md-end" for="input_{{ $field->id }}">{{ __($field->label) }}{{ $field->required ? ' *' : '' }}</label>
+                                                    @endif
+                                                    <div class="col-md-6 d-flex align-items-center{{ $field->type === 'input_checkbox' ? ' offset-md-4' : '' }}">
+                                                        @switch ($field->type)
+                                                            @case ('input_text')
+                                                                <input type="text" class="form-control" id="input_{{ $field->id }}" name="data[{{ $cluster->template->id }}][{{ $field->key }}]" placeholder="{{ $field->value }}" value="{{ $value ?? $field->value }}">
+                                                                @break
+                                                            @case ('input_number')
+                                                                <input type="number" class="form-control" id="input_{{ $field->id }}" name="data[{{ $cluster->template->id }}][{{ $field->key }}]" placeholder="{{ $field->value }}" value="{{ $value ?? $field->value }}" min="{{ $field->min }}" max="{{ $field->max }}" step="{{ $field->step }}">
+                                                                @break
+                                                            @case ('input_range')
+                                                                <div class="range-container" id="range_{{ $field->id }}">
+                                                                    <input type="range" class="form-range" id="input_{{ $field->id }}" name="data[{{ $cluster->template->id }}][{{ $field->key }}]" placeholder="{{ $field->value }}" value="{{ $value ?? (! empty($field->defaultOption) ? $field->defaultOption->value : $field->value) }}" min="{{ $field->min }}" max="{{ $field->max }}" step="{{ $field->step }}">
+                                                                    <div class="ruler" id="input_{{ $field->id }}_ruler"></div>
+                                                                </div>
+                                                                @break
+                                                            @case ('input_radio')
+                                                                <div id="input_{{ $field->id }}">
+                                                                    @foreach ($field->options as $option)
+                                                                        <div class="form-group d-flex gap-2 align-items-center">
+                                                                            <input id="{{ $field->key }}{{ $option->id }}" type="radio" class="form-check-input mt-0 @error($field->key) is-invalid @enderror" name="data[{{ $cluster->template->id }}][{{ $field->key }}]" value="{{ $option->value }}" {{ $value === $option->value || $value === null && $option->default ? ' checked' : '' }}>
+                                                                            <label for="{{ $field->key }}{{ $option->id }}" class="col-form-label text-md-left p-0">{{ __($option->label) }}</label>
+                                                                        </div>
+                                                                        @error($field->key)
+                                                                        <span class="invalid-feedback d-block" role="alert">
+                                                                            <strong>{{ $message }}</strong>
+                                                                        </span>
+                                                                        @enderror
+                                                                    @endforeach
+                                                                </div>
+                                                                @break
+                                                            @case ('input_radio_image')
+                                                                <div id="input_{{ $field->id }}">
+                                                                    @foreach ($field->options as $option)
+                                                                        <div class="form-group d-flex gap-2 align-items-center">
+                                                                            <input id="{{ $field->key }}" type="radio" class="form-check-input mt-0 has-image @error($field->key) is-invalid @enderror" name="data[{{ $cluster->template->id }}][{{ $field->key }}]" value="{{ $option->value }}" {{ $value === $option->value || $value === null && $option->default ? ' checked' : '' }}>
+                                                                            <img src="{{ $option->label }}" class="radio-image">
+                                                                        </div>
+                                                                        @error($field->key)
+                                                                        <span class="invalid-feedback d-block" role="alert">
+                                                                            <strong>{{ $message }}</strong>
+                                                                        </span>
+                                                                        @enderror
+                                                                    @endforeach
+                                                                </div>
+                                                                @break
+                                                            @case ('input_checkbox')
+                                                                <div class="form-group d-flex gap-2 align-items-center" id="input_{{ $field->id }}">
+                                                                    <input id="{{ $field->key }}" type="checkbox" class="form-check-input mt-0 @error($field->key) is-invalid @enderror" name="data[{{ $cluster->template->id }}][{{ $field->key }}]" value="{{ $value ?? $field->value }}"{{ $value === $field->value ? ' checked' : '' }}>
+                                                                    <label for="{{ $field->key }}" class="col-form-label text-md-left p-0">{{ __($field->label) }} {{ $field->required ? '*' : '' }}</label>
+                                                                </div>
+                                                                @error($field->key)
+                                                                <span class="invalid-feedback d-block mb-3" role="alert">
+                                                                    <strong>{{ $message }}</strong>
+                                                                </span>
+                                                                @enderror
+                                                                @break
+                                                            @case ('select')
+                                                                <select class="form-control" id="input_{{ $field->id }}" name="data[{{ $cluster->template->id }}][{{ $field->key }}]">
+                                                                    @foreach ($field->options as $option)
+                                                                        <option value="{{ $option->value }}"{{ $value === $option->value || $value === null && $option->default ? ' selected' : '' }}>{{ $option->label }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                                @break
+                                                            @case ('textarea')
+                                                                <textarea class="form-control" id="input_{{ $field->id }}" name="data[{{ $cluster->template->id }}][{{ $field->key }}]" placeholder="{{ $field->value }}">{{ $value ?? $field->value }}</textarea>
+                                                                @break
+                                                        @endswitch
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        @endif
+
+                                        @if ($cluster->template->groupedFields->on_update->advanced->count() > 0)
+                                            <div class="row mt-4">
+                                                <div class="col-md-6 offset-md-4">
+                                                    <a href="#" data-bs-toggle="collapse" data-bs-target="#advancedFields{{ $cluster->template->id }}">
+                                                        {{ __('Show advanced fields') }}
+                                                    </a>
+                                                </div>
+                                            </div>
+                                            <div class="collapse" id="advancedFields{{ $cluster->template->id }}">
+                                                @foreach ($cluster->template->groupedFields->on_update->advanced as $field)
+                                                    @if ($field->secret)
+                                                        @php
+                                                            $value = $cluster->clusterSecretData->where('key', $field->key)->first()?->value;
+                                                        @endphp
+                                                    @else
+                                                        @php
+                                                            $value = $cluster->clusterData->where('key', $field->key)->first()?->value;
+                                                        @endphp
+                                                    @endif
+
+                                                    <div class="row my-3">
+                                                        @if ($field->type !== 'input_checkbox')
+                                                            <label class="col-md-4 col-form-label text-md-end" for="input_{{ $field->id }}">{{ __($field->label) }}{{ $field->required ? ' *' : '' }}</label>
+                                                        @endif
+                                                        <div class="col-md-6 d-flex align-items-center{{ $field->type === 'input_checkbox' ? ' offset-md-4' : '' }}">
+                                                            @switch ($field->type)
+                                                                @case ('input_text')
+                                                                    <input type="text" class="form-control" id="input_{{ $field->id }}" name="data[{{ $cluster->template->id }}][{{ $field->key }}]" placeholder="{{ $field->value }}" value="{{ $value ?? $field->value }}">
+                                                                    @break
+                                                                @case ('input_number')
+                                                                    <input type="number" class="form-control" id="input_{{ $field->id }}" name="data[{{ $cluster->template->id }}][{{ $field->key }}]" placeholder="{{ $field->value }}" value="{{ $value ?? $field->value }}" min="{{ $field->min }}" max="{{ $field->max }}" step="{{ $field->step }}">
+                                                                    @break
+                                                                @case ('input_range')
+                                                                    <div class="range-container" id="range_{{ $field->id }}">
+                                                                        <input type="range" class="form-range" id="input_{{ $field->id }}" name="data[{{ $cluster->template->id }}][{{ $field->key }}]" placeholder="{{ $field->value }}" value="{{ $value ?? (! empty($field->defaultOption) ? $field->defaultOption->value : $field->value) }}" min="{{ $field->min }}" max="{{ $field->max }}" step="{{ $field->step }}">
+                                                                        <div class="ruler" id="input_{{ $field->id }}_ruler"></div>
+                                                                    </div>
+                                                                    @break
+                                                                @case ('input_radio')
+                                                                    <div id="input_{{ $field->id }}">
+                                                                        @foreach ($field->options as $option)
+                                                                            <div class="form-group d-flex gap-2 align-items-center">
+                                                                                <input id="{{ $field->key }}{{ $option->id }}" type="radio" class="form-check-input mt-0 @error($field->key) is-invalid @enderror" name="data[{{ $cluster->template->id }}][{{ $field->key }}]" value="{{ $option->value }}" {{ $value === $option->value || $value === null && $option->default ? ' checked' : '' }}>
+                                                                                <label for="{{ $field->key }}{{ $option->id }}" class="col-form-label text-md-left p-0">{{ __($option->label) }}</label>
+                                                                            </div>
+                                                                            @error($field->key)
+                                                                            <span class="invalid-feedback d-block" role="alert">
+                                                                                <strong>{{ $message }}</strong>
+                                                                            </span>
+                                                                            @enderror
+                                                                        @endforeach
+                                                                    </div>
+                                                                    @break
+                                                                @case ('input_radio_image')
+                                                                    <div id="input_{{ $field->id }}">
+                                                                        @foreach ($field->options as $option)
+                                                                            <div class="form-group d-flex gap-2 align-items-center">
+                                                                                <input id="{{ $field->key }}" type="radio" class="form-check-input mt-0 has-image @error($field->key) is-invalid @enderror" name="data[{{ $cluster->template->id }}][{{ $field->key }}]" value="{{ $option->value }}" {{ $value === $option->value || $value === null && $option->default ? ' checked' : '' }}>
+                                                                                <img src="{{ $option->label }}" class="radio-image">
+                                                                            </div>
+                                                                            @error($field->key)
+                                                                            <span class="invalid-feedback d-block" role="alert">
+                                                                                <strong>{{ $message }}</strong>
+                                                                            </span>
+                                                                            @enderror
+                                                                        @endforeach
+                                                                    </div>
+                                                                    @break
+                                                                @case ('input_checkbox')
+                                                                    <div class="form-group d-flex gap-2 align-items-center" id="input_{{ $field->id }}">
+                                                                        <input id="{{ $field->key }}" type="checkbox" class="form-check-input mt-0 @error($field->key) is-invalid @enderror" name="data[{{ $cluster->template->id }}][{{ $field->key }}]" value="{{ $field->value }}"{{ $value === $field->value ? ' checked' : '' }}>
+                                                                        <label for="{{ $field->key }}" class="col-form-label text-md-left p-0">{{ __($field->label) }} {{ $field->required ? '*' : '' }}</label>
+                                                                    </div>
+                                                                    @error($field->key)
+                                                                    <span class="invalid-feedback d-block mb-3" role="alert">
+                                                                        <strong>{{ $message }}</strong>
+                                                                    </span>
+                                                                    @enderror
+                                                                    @break
+                                                                @case ('select')
+                                                                    <select class="form-control" id="input_{{ $field->id }}" name="data[{{ $cluster->template->id }}][{{ $field->key }}]">
+                                                                        @foreach ($field->options as $option)
+                                                                            <option value="{{ $option->value }}"{{ $value === $option->value || $value === null && $option->default ? ' selected' : '' }}>{{ $option->label }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                    @break
+                                                                @case ('textarea')
+                                                                    <textarea class="form-control" id="input_{{ $field->id }}" name="data[{{ $cluster->template->id }}][{{ $field->key }}]" placeholder="{{ $field->value }}">{{ $value ?? $field->value }}</textarea>
+                                                                    @break
+                                                            @endswitch
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endif
+
+                                @foreach ($cluster->template->groupedFields->on_update->hidden as $field)
+                                    <input type="hidden" id="input_{{ $field->id }}" name="data[{{ $cluster->template->id }}][{{ $field->key }}]" value="{{ $value ?? $field->value }}">
+                                @endforeach
+                            </div>
+                        @endif
+
                         <div class="border rounded py-4 mb-3" id="git-credentials">
                             <div class="row mb-3">
                                 <div class="col-md-6 offset-md-4">
@@ -238,7 +447,7 @@
 
                                         <div class="col-md-6">
                                             <div class="input-group">
-                                                <input id="resources_alert_cpu" type="number" class="form-control @error('resources.alert.cpu') is-invalid @enderror" name="resources[alert][cpu]" value="{{ old('resources.alert.cpu') ?? $cluster->alert?->cpu ?? 80 }}">
+                                                <input id="resources_alert_cpu" type="number" class="form-control @error('resources.alert.cpu') is-invalid @enderror" name="resources[alert][cpu]" value="{{ old('resources.alert.cpu') ?? $cluster->alert?->cpu ?? 60 }}">
                                                 <span class="input-group-text">%</span>
                                             </div>
 
@@ -255,7 +464,7 @@
 
                                         <div class="col-md-6">
                                             <div class="input-group">
-                                                <input id="resources_alert_memory" type="number" class="form-control @error('resources.alert.memory') is-invalid @enderror" name="resources[alert][memory]" value="{{ old('resources.alert.memory') ?? $cluster->alert?->memory ?? 80 }}">
+                                                <input id="resources_alert_memory" type="number" class="form-control @error('resources.alert.memory') is-invalid @enderror" name="resources[alert][memory]" value="{{ old('resources.alert.memory') ?? $cluster->alert?->memory ?? 60 }}">
                                                 <span class="input-group-text">%</span>
                                             </div>
 
@@ -272,7 +481,7 @@
 
                                         <div class="col-md-6">
                                             <div class="input-group">
-                                                <input id="resources_alert_storage" type="number" class="form-control @error('resources.alert.storage') is-invalid @enderror" name="resources[alert][storage]" value="{{ old('resources.alert.storage') ?? $cluster->alert?->storage ?? 80 }}">
+                                                <input id="resources_alert_storage" type="number" class="form-control @error('resources.alert.storage') is-invalid @enderror" name="resources[alert][storage]" value="{{ old('resources.alert.storage') ?? $cluster->alert?->storage ?? 60 }}">
                                                 <span class="input-group-text">%</span>
                                             </div>
 
@@ -289,7 +498,7 @@
 
                                         <div class="col-md-6">
                                             <div class="input-group">
-                                                <input id="resources_alert_pods" type="number" class="form-control @error('resources.alert.pods') is-invalid @enderror" name="resources[alert][pods]" value="{{ old('resources.alert.pods') ?? $cluster->alert?->pods ?? 80 }}">
+                                                <input id="resources_alert_pods" type="number" class="form-control @error('resources.alert.pods') is-invalid @enderror" name="resources[alert][pods]" value="{{ old('resources.alert.pods') ?? $cluster->alert?->pods ?? 60 }}">
                                                 <span class="input-group-text">%</span>
                                             </div>
 

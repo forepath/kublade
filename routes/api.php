@@ -72,6 +72,7 @@ Route::middleware([
     Route::get('/projects/{project_id}/clusters/{cluster_id}', [App\Http\Controllers\API\ClusterController::class, 'action_get'])->name('api.cluster.get')->middleware('api.permission.guard:projects.clusters.view');
     Route::patch('/projects/{project_id}/clusters/{cluster_id}', [App\Http\Controllers\API\ClusterController::class, 'action_update'])->name('api.cluster.update')->middleware('api.permission.guard:projects.clusters.update');
     Route::delete('/projects/{project_id}/clusters/{cluster_id}', [App\Http\Controllers\API\ClusterController::class, 'action_delete'])->name('api.cluster.delete')->middleware('api.permission.guard:projects.clusters.delete');
+    Route::patch('/projects/{project_id}/clusters/{cluster_id}/approve', [App\Http\Controllers\API\ClusterController::class, 'action_approve'])->name('api.cluster.approve')->middleware('api.permission.guard:projects.clusters.approve');
 
     Route::get('/projects/{project_id}/deployments', [App\Http\Controllers\API\DeploymentController::class, 'action_list'])->name('api.deployment.list')->middleware('api.permission.guard:projects.deployments.view');
     Route::post('/projects/{project_id}/deployments', [App\Http\Controllers\API\DeploymentController::class, 'action_add'])->name('api.deployment.add')->middleware('api.permission.guard:projects.deployments.add');

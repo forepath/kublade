@@ -33,6 +33,15 @@ use OpenApi\Annotations as OA;
  *         @OA\Schema(type="string")
  *     ),
  *
+ *     @OA\Parameter(
+ *         name="type",
+ *         in="query",
+ *         required=false,
+ *         description="Type of an object",
+ *
+ *         @OA\Schema(type="string")
+ *     ),
+ *
  *     @OA\Response(
  *         response="ForbiddenResponse",
  *         description="Forbidden",

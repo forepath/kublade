@@ -7,13 +7,19 @@ namespace App\Http\Controllers\API;
 use App\Helpers\API\Response;
 use App\Http\Controllers\Controller;
 use App\Models\Kubernetes\Clusters\Cluster;
+use App\Models\Kubernetes\Clusters\ClusterData;
+use App\Models\Kubernetes\Clusters\ClusterSecretData;
 use App\Models\Kubernetes\Clusters\GitCredential;
 use App\Models\Kubernetes\Clusters\K8sCredential;
 use App\Models\Kubernetes\Clusters\Ns;
 use App\Models\Kubernetes\Clusters\Resource;
+use App\Models\Projects\Templates\Template;
+use App\Models\Projects\Templates\TemplateField;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 /**
  * Class ClusterController.
@@ -231,6 +237,7 @@ class ClusterController extends Controller
     public function action_add(Request $request)
     {
         $validator = Validator::make($request->all(), [
+            'template_id'               => ['nullable', 'string', 'max:255'],
             'name'                      => ['required', 'string', 'max:255'],
             'git'                       => ['required', 'array'],
             'git.url'                   => ['required', 'string', 'max:255'],
@@ -271,6 +278,131 @@ class ClusterController extends Controller
                 'name'       => $request->name,
             ])
         ) {
+            if (
+                ! empty($request->template_id) &&
+                ! empty(
+                    $template = Template::where('id', '=', $request->template_id)
+                        ->where('type', '=', 'cluster')
+                        ->first()
+                )
+            ) {
+                $validationRules = [];
+
+                $template->fields->each(function (TemplateField $field) use ($template, &$validationRules) {
+                    if (! $field->set_on_create) {
+                        return;
+                    }
+
+                    $rules = [];
+
+                    if ($field->required) {
+                        $rules[] = 'required';
+                    } else {
+                        $rules[] = 'nullable';
+                    }
+
+                    switch ($field->type) {
+                        case 'input_number':
+                        case 'input_range':
+                            $rules[] = 'numeric';
+
+                            if (! empty($field->min)) {
+                                $rules[] = 'min:' . $field->min;
+                            }
+
+                            if (! empty($field->max)) {
+                                $rules[] = 'max:' . $field->max;
+                            }
+
+                            if (! empty($field->step)) {
+                                $rules[] = 'multiple_of:' . $field->step;
+                            }
+
+                            break;
+                        case 'input_radio':
+                        case 'input_radio_image':
+                        case 'select':
+                            $availableOptions = $field->options
+                                ->pluck('value')
+                                ->toArray();
+
+                            if (! empty($field->value)) {
+                                $availableOptions[] = $field->value;
+                            }
+
+                            $rules[] = Rule::in($availableOptions);
+
+                            break;
+                        case 'input_text':
+                        case 'textarea':
+                        default:
+                            $rules[] = 'string';
+
+                            break;
+                    }
+
+                    $validationRules['data.' . $template->id . '.' . $field->key] = $rules;
+                });
+
+                $validator = Validator::make($request->toArray(), $validationRules);
+
+                if ($validator->fails()) {
+                    $cluster->delete();
+
+                    return Response::generate(400, 'error', 'Validation failed', $validator->errors());
+                }
+
+                $requestFields = (object) (array_key_exists($request->template_id, $request->data ?? []) ? $request->data[$request->template_id] : []);
+
+                $template->fields->each(function (TemplateField $field) use ($requestFields, $cluster) {
+                    if ($field->type === 'input_radio' || $field->type === 'input_radio_image') {
+                        $option = null;
+
+                        if ($field->set_on_create) {
+                            $option = $field->options
+                                ->where('value', '=', $requestFields->{$field->key})
+                                ->first();
+                        }
+
+                        if (empty($option)) {
+                            $option = $field->options
+                                ->where('default', '=', true)
+                                ->first();
+                        }
+
+                        if (! empty($option)) {
+                            $value = $option->value;
+                        }
+
+                        if (empty($value)) {
+                            $value = $requestFields->{$field->key};
+                        }
+                    } else {
+                        if ($field->set_on_create) {
+                            $value = $requestFields->{$field->key} ?? '';
+                        } else {
+                            $value = $field->value ?? '';
+                        }
+                    }
+
+                    if ($field->secret) {
+                        ClusterSecretData::create([
+                            'cluster_id'        => $cluster->id,
+                            'template_field_id' => $field->id,
+                            'key'               => $field->key,
+                            'value'             => $value,
+                        ]);
+                    } else {
+                        ClusterData::create([
+                            'cluster_id'        => $cluster->id,
+                            'template_field_id' => $field->id,
+                            'key'               => $field->key,
+                            'value'             => $value,
+                        ]);
+                    }
+                });
+            }
+
             GitCredential::create([
                 'cluster_id'  => $cluster->id,
                 'url'         => $request->git['url'],
@@ -435,9 +567,113 @@ class ClusterController extends Controller
         }
 
         if ($cluster = Cluster::where('id', $cluster_id)->first()) {
-            $cluster->update([
-                'name' => $request->name,
-            ]);
+            if (! empty($cluster->template)) {
+                $cluster->template->fields->each(function (TemplateField $field) use ($cluster, &$validationRules) {
+                    if (! $field->set_on_update) {
+                        return;
+                    }
+
+                    $rules = [];
+
+                    if ($field->required) {
+                        $rules[] = 'required';
+                    } else {
+                        $rules[] = 'nullable';
+                    }
+
+                    switch ($field->type) {
+                        case 'input_number':
+                        case 'input_range':
+                            $rules[] = 'numeric';
+
+                            if (! empty($field->min)) {
+                                $rules[] = 'min:' . $field->min;
+                            }
+
+                            if (! empty($field->max)) {
+                                $rules[] = 'max:' . $field->max;
+                            }
+
+                            if (! empty($field->step)) {
+                                $rules[] = 'multiple_of:' . $field->step;
+                            }
+
+                            break;
+                        case 'input_radio':
+                        case 'input_radio_image':
+                        case 'select':
+                            $availableOptions = $field->options
+                                ->pluck('value')
+                                ->toArray();
+
+                            if (! empty($field->value)) {
+                                $availableOptions[] = $field->value;
+                            }
+
+                            $rules[] = Rule::in($availableOptions);
+
+                            break;
+                        case 'input_text':
+                        case 'textarea':
+                        default:
+                            $rules[] = 'string';
+
+                            break;
+                    }
+
+                    $validationRules['data.' . $cluster->template->id . '.' . $field->key] = $rules;
+                });
+
+                $validator = Validator::make($request->toArray(), $validationRules);
+
+                if ($validator->fails()) {
+                    return Response::generate(400, 'error', 'Validation failed', $validator->errors());
+                }
+
+                $requestFields = (object) (array_key_exists($cluster->template->id, $request->data ?? []) ? $request->data[$cluster->template->id] : []);
+
+                $cluster->template->fields->each(function (TemplateField $field) use ($requestFields, $cluster) {
+                    if (! $field->set_on_update) {
+                        return;
+                    }
+
+                    if ($field->type === 'input_radio' || $field->type === 'input_radio_image') {
+                        $option = $field->options
+                            ->where('value', '=', $requestFields->{$field->key})
+                            ->first();
+
+                        if (empty($option)) {
+                            $option = $field->options
+                                ->where('default', '=', true)
+                                ->first();
+                        }
+
+                        if (! empty($option)) {
+                            $value = $option->value;
+                        }
+
+                        if (empty($value)) {
+                            $value = $requestFields->{$field->key};
+                        }
+                    } else {
+                        $value = $requestFields->{$field->key} ?? '';
+                    }
+
+                    if ($field->secret) {
+                        $cluster->clusterSecretData->where('template_field_id', '=', $field->id)->each(function (ClusterSecretData $clusterSecretData) use ($value) {
+                            $clusterSecretData->update([
+                                'value' => $value,
+                            ]);
+                        });
+                    } else {
+                        $cluster->clusterData->where('template_field_id', '=', $field->id)->each(function (ClusterData $clusterData) use ($value) {
+                            $clusterData->update([
+                                'value' => $value,
+                            ]);
+                        });
+                    }
+                });
+            }
 
             if ($cluster->gitCredentials) {
                 $cluster->gitCredentials->update([
@@ -537,6 +773,14 @@ class ClusterController extends Controller
                 ]);
             }
 
+            $cluster->update([
+                'name' => $request->name,
+                ...($cluster->deployed_at ? [
+                    'update'      => true,
+                    'approved_at' => null,
+                ] : []),
+            ]);
+
             return Response::generate(200, 'success', 'Cluster updated successfully', [
                 'cluster' => $cluster->toArray(),
             ]);
@@ -602,5 +846,77 @@ class ClusterController extends Controller
         }
 
         return Response::generate(404, 'error', 'Cluster not found');
+    }
+
+    /**
+     * Approve the deployment.
+     *
+     * @OA\Patch(
+     *     path="/projects/{project_id}/clusters/{cluster_id}/approve",
+     *     summary="Approve a cluster",
+     *     tags={"Clusters"},
+     *
+     *     @OA\Parameter(ref="#/components/parameters/project_id"),
+     *     @OA\Parameter(ref="#/components/parameters/cluster_id"),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Cluster approved",
+     *
+     *         @OA\JsonContent(
+     *             type="object",
+     *
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="message", type="string", example="Cluster approved"),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="cluster", ref="#/components/schemas/Cluster")
+     *             )
+     *         )
+     *     ),
+     *
+     *     @OA\Response(response=400, ref="#/components/responses/ValidationErrorResponse"),
+     *     @OA\Response(response=401, ref="#/components/responses/UnauthorizedResponse"),
+     *     @OA\Response(response=404, ref="#/components/responses/NotFoundResponse"),
+     *     @OA\Response(response=500, ref="#/components/responses/ServerErrorResponse")
+     * )
+     *
+     * @param string $project_id
+     * @param string $cluster_id
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function action_approve(string $project_id, string $cluster_id)
+    {
+        $validator = Validator::make([
+            'project_id' => $project_id,
+            'cluster_id' => $cluster_id,
+        ], [
+            'project_id' => ['required', 'string', 'max:255'],
+            'cluster_id' => ['required', 'string', 'max:255'],
+        ]);
+
+        if ($validator->fails()) {
+            return Response::generate(400, 'error', 'Validation failed', $validator->errors());
+        }
+
+        $cluster = Cluster::where('id', '=', $cluster_id)
+            ->whereNotNull('template_id')
+            ->first();
+
+        if (empty($cluster)) {
+            return Response::generate(404, 'error', 'Cluster not found');
+        }
+
+        if ($cluster->approved_at) {
+            return Response::generate(400, 'error', 'Cluster already approved');
+        }
+
+        $cluster->update([
+            'approved_at' => Carbon::now(),
+        ]);
+
+        return Response::generate(200, 'success', 'Cluster approved', [
+            'cluster' => $cluster->toArray(),
+        ]);
     }
 }

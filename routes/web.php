@@ -83,6 +83,7 @@ Route::middleware([
     Route::get('/projects/{project_id}/clusters/{cluster_id}/update', [App\Http\Controllers\ClusterController::class, 'page_update'])->name('cluster.update')->middleware('ui.permission.guard:projects.clusters.update');
     Route::post('/projects/{project_id}/clusters/{cluster_id}/update', [App\Http\Controllers\ClusterController::class, 'action_update'])->name('cluster.update.action')->middleware('ui.permission.guard:projects.clusters.update');
     Route::get('/projects/{project_id}/clusters/{cluster_id}/delete', [App\Http\Controllers\ClusterController::class, 'action_delete'])->name('cluster.delete.action')->middleware('ui.permission.guard:projects.clusters.delete');
+    Route::get('/projects/{project_id}/clusters/{cluster_id}/approve', [App\Http\Controllers\ClusterController::class, 'action_approve'])->name('cluster.approve.action')->middleware('ui.permission.guard:projects.clusters.approve');
 
     Route::get('/projects/{project_id}/deployments', [App\Http\Controllers\DeploymentController::class, 'page_index'])->name('deployment.index')->middleware('ui.permission.guard:projects.deployments.view');
     Route::get('/projects/{project_id}/deployments/add', [App\Http\Controllers\DeploymentController::class, 'page_add'])->name('deployment.add')->middleware('ui.permission.guard:projects.deployments.add');

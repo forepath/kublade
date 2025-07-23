@@ -5,7 +5,7 @@
     @if (!empty($template))
         <div class="row mb-3">
             <div class="col-md-12">
-                <a href="{{ route('template.index') }}" class="btn btn-sm btn-secondary text-white">
+                <a href="{{ route('template.index', ['type' => $template->type]) }}" class="btn btn-sm btn-secondary text-white">
                     <i class="bi bi-arrow-left"></i>
                 </a>
             </div>
@@ -43,20 +43,32 @@
                         @include('template.field-tree', ['template' => $template])
                     </div>
                 </div>
-                <div class="card border border-secondary">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <span>{{ __('Ports') }}</span>
-                        <a href="{{ route('template.port.add', ['template_id' => $template->id]) }}" class="btn btn-sm btn-primary" title="{{ __('Add') }}">
-                            <i class="bi bi-plus"></i>
-                        </a>
+                @if ($template->type == 'application')
+                    <div class="card border border-secondary">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>{{ __('Ports') }}</span>
+                            <a href="{{ route('template.port.add', ['template_id' => $template->id]) }}" class="btn btn-sm btn-primary" title="{{ __('Add') }}">
+                                <i class="bi bi-plus"></i>
+                            </a>
+                        </div>
+                        <div class="card-body">
+                            @include('template.port-tree', ['template' => $template])
+                        </div>
                     </div>
-                    <div class="card-body">
-                        @include('template.port-tree', ['template' => $template])
-                    </div>
-                </div>
+                @endif
             </div>
         @endif
         <div class="{{ !empty($template) ? 'col-md-8' : 'col-md-12' }}">
+            @if (empty($template))
+                <ul class="nav nav-pills mb-3">
+                    <li class="nav-item">
+                        <a class="nav-link{{ !request()->type || request()->type == 'application' ? ' active bg-secondary text-white' : '' }}" href="{{ route('template.index', ['type' => 'application']) }}">{{ __('Application') }}</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link{{ request()->type == 'cluster' ? ' active bg-secondary text-white' : '' }}" href="{{ route('template.index', ['type' => 'cluster']) }}">{{ __('Cluster Provisioners') }}</a>
+                    </li>
+                </ul>
+            @endif
             <div class="card border border-secondary">
                 @if (!empty($template))
                     @if (!empty($file))
@@ -68,13 +80,15 @@
                     <div class="card-header d-flex justify-content-between align-items-center">
                         {{ __('Templates') }}
                         <div class="d-flex gap-2">
-                            <a href="{{ route('template.import') }}" class="btn btn-sm btn-primary" title="{{ __('Import') }}">
-                                <i class="bi bi-download"></i>
-                            </a>
-                            <a href="{{ route('template.sync') }}" class="btn btn-sm btn-secondary" title="{{ __('Sync') }}">
+                            @if (!request()->type || request()->type == 'application')
+                                <a href="{{ route('template.import', ['type' => 'application']) }}" class="btn btn-sm btn-primary" title="{{ __('Import') }}">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                            @endif
+                            <a href="{{ route('template.sync', ['type' => request()->type ?? 'application']) }}" class="btn btn-sm btn-secondary" title="{{ __('Sync') }}">
                                 <i class="bi bi-arrow-repeat"></i>
                             </a>
-                            <a href="{{ route('template.add') }}" class="btn btn-sm btn-primary" title="{{ __('Add') }}">
+                            <a href="{{ route('template.add', ['type' => request()->type ?? 'application']) }}" class="btn btn-sm btn-primary" title="{{ __('Add') }}">
                                 <i class="bi bi-plus"></i>
                             </a>
                         </div>
