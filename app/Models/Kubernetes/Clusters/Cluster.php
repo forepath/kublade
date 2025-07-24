@@ -283,6 +283,16 @@ class Cluster extends Model
     }
 
     /**
+     * Get the path attribute.
+     *
+     * @return string
+     */
+    public function getKopsPathAttribute(): string
+    {
+        return config('s3server.storage_path') . $this->id;
+    }
+
+    /**
      * Get the repository deployment path attribute.
      *
      * @return string

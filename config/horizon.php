@@ -246,6 +246,18 @@ return [
             'timeout'      => 1800,
             'nice'         => 0,
         ],
+        'supervisor-6' => [
+            'connection'   => 'redis',
+            'queue'        => ['cluster'],
+            'balance'      => 'auto',
+            'maxProcesses' => 4,
+            'maxTime'      => 0,
+            'maxJobs'      => 0,
+            'memory'       => 256,
+            'tries'        => 1,
+            'timeout'      => 900,
+            'nice'         => 0,
+        ],
     ],
 
     'environments' => [
@@ -271,6 +283,11 @@ return [
                 'balanceCooldown' => 3,
             ],
             'supervisor-5' => [
+                'maxProcesses'    => 20,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+            ],
+            'supervisor-6' => [
                 'maxProcesses'    => 20,
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
