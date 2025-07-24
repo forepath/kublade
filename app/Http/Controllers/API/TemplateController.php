@@ -1120,6 +1120,7 @@ class TemplateController extends Controller
             'name'                  => ['required', 'string', 'max:255'],
             'template_directory_id' => ['nullable', 'string', 'max:255'],
             'mime_type'             => ['required', 'string', 'max:255'],
+            'sort'                  => ['nullable', 'integer'],
         ]);
 
         if ($validator->fails()) {
@@ -1133,6 +1134,7 @@ class TemplateController extends Controller
                 'name'                  => $request->name,
                 'mime_type'             => $request->mime_type,
                 'content'               => '',
+                'sort'                  => $request->sort,
             ])
         ) {
             Deployment::where('delete', '=', false)
@@ -1208,6 +1210,7 @@ class TemplateController extends Controller
             'template_directory_id' => ['nullable', 'string', 'max:255'],
             'mime_type'             => ['required', 'string', 'max:255'],
             'content'               => ['nullable', 'string'],
+            'sort'                  => ['nullable', 'integer'],
         ]);
 
         if ($validator->fails()) {
@@ -1224,6 +1227,7 @@ class TemplateController extends Controller
                 'template_directory_id' => $request->template_directory_id,
                 'mime_type'             => $request->mime_type,
                 ...($request->content ? ['content' => $request->content] : []),
+                'sort' => $request->sort,
             ]);
 
             Deployment::where('delete', '=', false)

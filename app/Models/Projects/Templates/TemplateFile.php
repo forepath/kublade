@@ -30,6 +30,7 @@ use Illuminate\Support\Facades\Blade;
  *     @OA\Property(property="name", type="string", example="File 1"),
  *     @OA\Property(property="mime_type", type="string", example="text/plain"),
  *     @OA\Property(property="content", type="string", example="Content of the file"),
+ *     @OA\Property(property="sort", type="integer", example=0),
  *     @OA\Property(property="created_at", type="string", format="date-time", example="2021-01-01 00:00:00", nullable=true),
  *     @OA\Property(property="updated_at", type="string", format="date-time", example="2021-01-01 00:00:00", nullable=true),
  *     @OA\Property(property="deleted_at", type="string", format="date-time", example="2021-01-01 00:00:00", nullable=true),
@@ -42,6 +43,7 @@ use Illuminate\Support\Facades\Blade;
  * @property string $template_directory_id
  * @property string $name
  * @property string $mime_type
+ * @property int    $sort
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property Carbon $deleted_at
@@ -101,6 +103,7 @@ class TemplateFile extends Model
             'id'        => $this->id,
             'name'      => $this->name,
             'mime_type' => $this->mime_type,
+            'sort'      => $this->sort,
         ];
     }
 

@@ -7,10 +7,15 @@ namespace App\Helpers\Kops;
 use App\Exceptions\KopsException;
 use App\Helpers\Kubernetes\YamlFormatter;
 use App\Models\Kubernetes\Clusters\Cluster;
+use App\Models\Kubernetes\Clusters\ClusterData;
+use App\Models\Kubernetes\Clusters\ClusterSecretData;
 use Exception;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use LaravelS3Server\Models\S3AccessCredential;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -38,6 +43,15 @@ class KopsDeployment
 
         if ($replaceExisting) {
             Storage::disk('local')->deleteDirectory($cluster->kopsPath);
+
+            $s3Credentials = S3AccessCredential::where('access_key_id', $cluster->id)->first();
+        } else {
+            $s3Credentials = S3AccessCredential::create([
+                'access_key_id'     => $cluster->id,
+                'secret_access_key' => Str::random(32),
+                'description'       => 'Kops state store for cluster ' . $cluster->id,
+                'bucket'            => $cluster->id,
+            ]);
         }
 
         $clusterDirectoryStatus = Storage::disk('local')->makeDirectory($cluster->kopsPath);
@@ -46,25 +60,38 @@ class KopsDeployment
             throw new KopsException('Server Error', 500);
         }
 
-        $cluster->template->fullTree->each(function ($item) use ($cluster, $data, $secretData) {
+        $files = collect();
+
+        $cluster->template->fullTree->each(function ($item) use ($cluster, $data, $secretData, &$files) {
             if ($item->type === 'file') {
-                self::createFile($item, $cluster, $data, $secretData);
+                $files->push(self::createFile($item, $cluster, $data, $secretData));
             } elseif ($item->type === 'folder') {
-                self::createFolder($item, $cluster, $data, $secretData);
+                $files->concat(self::createFolder($item, $cluster, $data, $secretData));
             }
         });
 
-        // TODO: Properly order files and apply every file separately
-        // TODO: Set proper s3 state storage backend
-        $cmd    = ['kops', 'create', '-f', $cluster->kopsPath];
-        $result = Process::run($cmd);
+        $files->filter()->sortBy('object.sort')->each(function ($file) use ($cluster, $replaceExisting, $s3Credentials) {
+            if ($replaceExisting) {
+                $cmd = ['kops', 'replace', '-f', $cluster->kopsPath . $file->object->path, '--force'];
+            } else {
+                $cmd = ['kops', 'create', '-f', $cluster->kopsPath . $file->object->path];
+            }
 
-        if (!$result->successful()) {
-            throw new KopsException('Failed to create cluster', 500);
-        }
+            $result = Process::env([
+                'S3_ENDPOINT'         => config('app.url') . '/s3',
+                'S3_FORCE_PATH_STYLE' => 'true',
+                'KOPS_STATE_STORE'    => 's3://' . $cluster->id,
+                ...($s3Credentials ? [
+                    'AWS_ACCESS_KEY_ID'     => $s3Credentials->access_key_id,
+                    'AWS_SECRET_ACCESS_KEY' => $s3Credentials->secret_access_key,
+                ] : []),
+            ])->run($cmd);
+
+            if (!$result->successful()) {
+                throw new KopsException('Failed to create cluster', 500);
+            }
+        });
     }
-
-    // TODO: Add a method to update a cluster
 
     /**
      * Delete a deployment.
@@ -77,14 +104,55 @@ class KopsDeployment
             throw new KopsException('Not Found', 404);
         }
 
-        // TODO: Properly order files and apply every file separately
-        // TODO: Set proper s3 state storage backend
-        $cmd    = ['kops', 'delete', '-f', $cluster->kopsPath, '--yes'];
-        $result = Process::run($cmd);
+        $s3Credentials = S3AccessCredential::where('access_key_id', $cluster->id)->first();
+        $files         = collect();
 
-        if (!$result->successful()) {
-            throw new KopsException('Failed to delete cluster', 500);
-        }
+        $cluster->template->fullTree->each(function ($item) use ($cluster, &$files) {
+            if ($item->type === 'file') {
+                $files->push(
+                    self::createFile(
+                        $item,
+                        $cluster,
+                        $cluster->clusterData->mapWithKeys(function (ClusterData $data) {
+                            return [$data->key => $data->value];
+                        })->toArray(),
+                        $cluster->clusterSecretData->mapWithKeys(function (ClusterSecretData $data) {
+                            return [$data->key => $data->value];
+                        })->toArray()
+                    )
+                );
+            } elseif ($item->type === 'folder') {
+                $files->concat(
+                    self::createFolder(
+                        $item,
+                        $cluster,
+                        $cluster->clusterData->mapWithKeys(function (ClusterData $data) {
+                            return [$data->key => $data->value];
+                        })->toArray(),
+                        $cluster->clusterSecretData->mapWithKeys(function (ClusterSecretData $data) {
+                            return [$data->key => $data->value];
+                        })->toArray()
+                    )
+                );
+            }
+        });
+
+        $files->filter()->sortBy('object.sort')->each(function ($file) use ($cluster, $s3Credentials) {
+            $cmd    = ['kops', 'delete', '-f', $cluster->kopsPath . $file->object->path, '--yes'];
+            $result = Process::env([
+                'S3_ENDPOINT'         => config('app.url') . '/s3',
+                'S3_FORCE_PATH_STYLE' => 'true',
+                'KOPS_STATE_STORE'    => 's3://' . $cluster->id,
+                ...($s3Credentials ? [
+                    'AWS_ACCESS_KEY_ID'     => $s3Credentials->access_key_id,
+                    'AWS_SECRET_ACCESS_KEY' => $s3Credentials->secret_access_key,
+                ] : []),
+            ])->run($cmd);
+
+            if (!$result->successful()) {
+                throw new KopsException('Failed to delete cluster', 500);
+            }
+        });
 
         if (!Storage::disk('local')->deleteDirectory($cluster->kopsPath)) {
             throw new KopsException('Server Error', 500);
@@ -98,21 +166,25 @@ class KopsDeployment
      * @param Cluster $cluster
      * @param array   $data
      * @param array   $secretData
-     * @param array   $portClaims
+     *
+     * @return Collection<object|null>
      */
-    private static function createFolder(object $item, Cluster $cluster, array $data = [], array $secretData = [], array $portClaims = [])
+    private static function createFolder(object $item, Cluster $cluster, array $data = [], array $secretData = []): Collection
     {
-        $path = $cluster->kopsPath . $item->object->path;
+        $files = collect();
+        $path  = $cluster->kopsPath . $item->object->path;
 
         Storage::disk('local')->makeDirectory($path);
 
-        $item->children?->each(function ($child) use ($cluster, $data, $secretData, $portClaims) {
+        $item->children?->each(function ($child) use ($cluster, $data, $secretData, &$files) {
             if ($child->type === 'file') {
-                self::createFile($child, $cluster, $data, $secretData, $portClaims);
+                $files->push(self::createFile($child, $cluster, $data, $secretData));
             } elseif ($child->type === 'folder') {
-                self::createFolder($child, $cluster, $data, $secretData, $portClaims);
+                $files->concat(self::createFolder($child, $cluster, $data, $secretData));
             }
         });
+
+        return $files;
     }
 
     /**
@@ -122,9 +194,10 @@ class KopsDeployment
      * @param Cluster $cluster
      * @param array   $data
      * @param array   $secretData
-     * @param array   $portClaims
+     *
+     * @return object|null
      */
-    private static function createFile(object $item, Cluster $cluster, array $data = [], array $secretData = [], array $portClaims = [])
+    private static function createFile(object $item, Cluster $cluster, array $data = [], array $secretData = [])
     {
         $path = $cluster->kopsPath . $item->object->path;
 
@@ -147,8 +220,12 @@ class KopsDeployment
             }
 
             Storage::disk('local')->put($path, YamlFormatter::format(Yaml::dump($templateContent, 10, 2)));
+
+            return $item;
         } catch (Exception $e) {
             throw new KopsException('Server Error', 500);
         }
+
+        return null;
     }
 }

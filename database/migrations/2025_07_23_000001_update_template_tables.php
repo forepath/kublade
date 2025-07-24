@@ -16,6 +16,10 @@ return new class () extends Migration {
             $table->enum('type', ['application', 'cluster'])->default('application')->after('user_id');
         });
 
+        Schema::table('template_files', function (Blueprint $table) {
+            $table->integer('sort')->nullable()->after('content');
+        });
+
         Schema::table('clusters', function (Blueprint $table) {
             $table->foreignUuid('template_id')->nullable()->after('project_id')->references('id')->on('templates');
             $table->boolean('update')->default(false)->after('name');
@@ -68,6 +72,10 @@ return new class () extends Migration {
             $table->dropColumn('update');
             $table->dropForeign(['template_id']);
             $table->dropColumn('template_id');
+        });
+
+        Schema::table('template_files', function (Blueprint $table) {
+            $table->dropColumn('sort');
         });
 
         Schema::table('templates', function (Blueprint $table) {

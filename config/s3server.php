@@ -13,5 +13,5 @@ return [
     'auth'           => env('S3SERVER_AUTH', true),
     'auth_driver'    => env('S3SERVER_AUTH_DRIVER', LaravelS3Server\Drivers\DatabaseAuthenticationDriver::class),
     'storage_driver' => env('S3SERVER_STORAGE_DRIVER', LaravelS3Server\Drivers\FileStorageDriver::class),
-    'storage_path'   => env('S3SERVER_STORAGE_PATH', 'kops/'),
+    'storage_path'   => env('S3SERVER_STORAGE_PATH', 's3/'),
 ];

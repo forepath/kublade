@@ -542,3 +542,14 @@ main {
     overflow-wrap: break-word;
     word-break: break-word;
 }
+
+.badge-count {
+    width: 1.125rem;
+    height: 1.125rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--bs-white);
+}
