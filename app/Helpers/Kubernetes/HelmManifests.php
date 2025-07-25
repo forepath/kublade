@@ -162,7 +162,7 @@ class HelmManifests
         $ociRef = rtrim(self::$repoUrl, '/') . '/' . self::$chartName;
 
         $cmd    = ['helm', 'pull', $ociRef, '--untar', '--destination', $tmpDir];
-        $result = Process::run($cmd);
+        $result = Process::timeout(config('process.timeout'))->run($cmd);
 
         if (!$result->successful()) {
             throw new HelmException('Failed to download chart');
@@ -187,7 +187,7 @@ class HelmManifests
         }
 
         $cmd    = ['helm', 'pull', $ociRef, '--untar', '--destination', $tmpDir];
-        $result = Process::run($cmd);
+        $result = Process::timeout(config('process.timeout'))->run($cmd);
 
         if (!$result->successful()) {
             throw new HelmException('Failed to download chart');

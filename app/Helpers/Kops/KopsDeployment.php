@@ -77,15 +77,17 @@ class KopsDeployment
                 $cmd = ['kops', 'create', '-f', $cluster->kopsPath . $file->object->path];
             }
 
-            $result = Process::env([
-                'S3_ENDPOINT'         => config('app.url') . '/s3',
-                'S3_FORCE_PATH_STYLE' => 'true',
-                'KOPS_STATE_STORE'    => 's3://' . $cluster->id,
-                ...($s3Credentials ? [
-                    'AWS_ACCESS_KEY_ID'     => $s3Credentials->access_key_id,
-                    'AWS_SECRET_ACCESS_KEY' => $s3Credentials->secret_access_key,
-                ] : []),
-            ])->run($cmd);
+            $result = Process::timeout(config('process.timeout'))
+                ->env([
+                    'S3_ENDPOINT'         => config('app.url') . '/s3',
+                    'S3_FORCE_PATH_STYLE' => 'true',
+                    'KOPS_STATE_STORE'    => 's3://' . $cluster->id,
+                    ...($s3Credentials ? [
+                        'AWS_ACCESS_KEY_ID'     => $s3Credentials->access_key_id,
+                        'AWS_SECRET_ACCESS_KEY' => $s3Credentials->secret_access_key,
+                    ] : []),
+                ])
+                ->run($cmd);
 
             if (!$result->successful()) {
                 throw new KopsException('Failed to create cluster', 500);
@@ -139,15 +141,17 @@ class KopsDeployment
 
         $files->filter()->sortBy('object.sort')->each(function ($file) use ($cluster, $s3Credentials) {
             $cmd    = ['kops', 'delete', '-f', $cluster->kopsPath . $file->object->path, '--yes'];
-            $result = Process::env([
-                'S3_ENDPOINT'         => config('app.url') . '/s3',
-                'S3_FORCE_PATH_STYLE' => 'true',
-                'KOPS_STATE_STORE'    => 's3://' . $cluster->id,
-                ...($s3Credentials ? [
-                    'AWS_ACCESS_KEY_ID'     => $s3Credentials->access_key_id,
-                    'AWS_SECRET_ACCESS_KEY' => $s3Credentials->secret_access_key,
-                ] : []),
-            ])->run($cmd);
+            $result = Process::timeout(config('process.timeout'))
+                ->env([
+                    'S3_ENDPOINT'         => config('app.url') . '/s3',
+                    'S3_FORCE_PATH_STYLE' => 'true',
+                    'KOPS_STATE_STORE'    => 's3://' . $cluster->id,
+                    ...($s3Credentials ? [
+                        'AWS_ACCESS_KEY_ID'     => $s3Credentials->access_key_id,
+                        'AWS_SECRET_ACCESS_KEY' => $s3Credentials->secret_access_key,
+                    ] : []),
+                ])
+                ->run($cmd);
 
             if (!$result->successful()) {
                 throw new KopsException('Failed to delete cluster', 500);
