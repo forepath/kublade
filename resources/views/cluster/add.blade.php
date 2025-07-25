@@ -53,7 +53,7 @@
                             </div>
 
                             @foreach ($templates as $template)
-                                @if ($template->groupedFields->on_create->default->count() > 0 || $template->groupedFields->on_create->advanced->count() > 0)
+                                @if ($template->groupedFields->on_create->default->count() > 0 || $template->groupedFields->on_create->advanced->count() > 0 || $template->environmentVariables->count() > 0)
                                     <div class="mt-3 fields" id="fields{{ $template->id }}" style="display: none">
                                         @if ($template->groupedFields->on_create->default->count() > 0)
                                             @foreach ($template->groupedFields->on_create->default as $field)
@@ -216,6 +216,19 @@
                                                     </div>
                                                 @endforeach
                                             </div>
+                                        @endif
+                                        @if ($template->type === 'cluster')
+                                            @foreach ($template->environmentVariables as $environmentVariable)
+                                                <div class="row mt-3">
+                                                    <label class="col-md-4 col-form-label text-md-end" for="inputEnv_{{ $environmentVariable->id }}">
+                                                        {{ $environmentVariable->key }}
+                                                        <span class="small d-block lh-1">{{ __('Provider configuration') }}</span>
+                                                    </label>
+                                                    <div class="col-md-6 d-flex align-items-center">
+                                                        <input type="text" class="form-control" id="inputEnv_{{ $environmentVariable->id }}" name="env[{{ $template->id }}][{{ $environmentVariable->key }}]">
+                                                    </div>
+                                                </div>
+                                            @endforeach
                                         @endif
                                     </div>
                                 @endif

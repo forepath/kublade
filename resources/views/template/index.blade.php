@@ -56,6 +56,19 @@
                         </div>
                     </div>
                 @endif
+                @if ($template->type == 'cluster')
+                    <div class="card border border-secondary">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>{{ __('Environment Variables') }}</span>
+                            <a href="{{ route('template.env-variable.add', ['template_id' => $template->id]) }}" class="btn btn-sm btn-primary" title="{{ __('Add') }}">
+                                <i class="bi bi-plus"></i>
+                            </a>
+                        </div>
+                        <div class="card-body">
+                            @include('template.env-variable-tree', ['template' => $template])
+                        </div>
+                    </div>
+                @endif
             </div>
         @endif
         <div class="{{ !empty($template) ? 'col-md-8' : 'col-md-12' }}">

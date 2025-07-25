@@ -51,6 +51,23 @@ return new class () extends Migration {
             $table->timestamps();
             $table->softDeletes();
         });
+
+        Schema::create('template_env_variables', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->foreignUuid('template_id')->references('id')->on('templates');
+            $table->string('key');
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+        Schema::create('cluster_env_variables', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->foreignUuid('cluster_id')->references('id')->on('clusters');
+            $table->foreignUuid('template_env_variable_id')->references('id')->on('template_env_variables');
+            $table->longText('value');
+            $table->timestamps();
+            $table->softDeletes();
+        });
     }
 
     /**
@@ -58,6 +75,8 @@ return new class () extends Migration {
      */
     public function down()
     {
+        Schema::dropIfExists('cluster_env_variables');
+        Schema::dropIfExists('template_env_variables');
         Schema::dropIfExists('cluster_secret_data');
         Schema::dropIfExists('cluster_data');
 

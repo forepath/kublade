@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Projects\Deployments\Deployment;
 use App\Models\Projects\Templates\Template;
 use App\Models\Projects\Templates\TemplateDirectory;
+use App\Models\Projects\Templates\TemplateEnvironmentVariable;
 use App\Models\Projects\Templates\TemplateField;
 use App\Models\Projects\Templates\TemplateFieldOption;
 use App\Models\Projects\Templates\TemplateFile;
@@ -2432,5 +2433,325 @@ class TemplateController extends Controller
         }
 
         return Response::generate(404, 'error', 'Port not found');
+    }
+
+    /**
+     * List the environment variables.
+     *
+     * @OA\Get(
+     *     path="/api/templates/{template_id}/env-variables",
+     *     summary="List the environment variables",
+     *     tags={"Templates"},
+     *
+     *     @OA\Parameter(ref="#/components/parameters/template_id"),
+     *     @OA\Parameter(ref="#/components/parameters/cursor"),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Environment variables retrieved successfully",
+     *
+     *         @OA\JsonContent(
+     *             type="object",
+     *
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="message", type="string", example="Environment variables retrieved successfully"),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="env_variables", type="array",
+     *
+     *                     @OA\Items(ref="#/components/schemas/TemplateEnvironmentVariable")
+     *                 ),
+     *
+     *                 @OA\Property(property="links", type="object",
+     *                     @OA\Property(property="next", type="string"),
+     *                     @OA\Property(property="prev", type="string")
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *
+     *     @OA\Response(response=401, ref="#/components/responses/UnauthorizedResponse"),
+     *     @OA\Response(response=500, ref="#/components/responses/ServerErrorResponse")
+     * )
+     *
+     * @param string $template_id
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function action_list_env_variable(string $template_id)
+    {
+        $env_variables = TemplateEnvironmentVariable::where('template_id', $template_id)->cursorPaginate(10);
+
+        return Response::generate(200, 'success', 'Environment variables retrieved successfully', [
+            'env_variables' => collect($env_variables->items())->map(function ($item) {
+                return $item->toArray();
+            }),
+        ]);
+    }
+
+    /**
+     * Get the environment variable.
+     *
+     * @OA\Get(
+     *     path="/api/templates/{template_id}/env-variables/{env_variable_id}",
+     *     summary="Get the environment variable",
+     *     tags={"Templates"},
+     *
+     *     @OA\Parameter(ref="#/components/parameters/template_id"),
+     *     @OA\Parameter(ref="#/components/parameters/env_variable_id"),
+     *
+     *     @OA\Response(response=200, description="Environment variable retrieved successfully",
+     *
+     *         @OA\JsonContent(
+     *             type="object",
+     *
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="message", type="string", example="Environment variable retrieved successfully"),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="env_variable", ref="#/components/schemas/TemplateEnvironmentVariable")
+     *             )
+     *         )
+     *     ),
+     *
+     *     @OA\Response(response=401, ref="#/components/responses/UnauthorizedResponse"),
+     *     @OA\Response(response=500, ref="#/components/responses/ServerErrorResponse")
+     * )
+     *
+     * @param string $template_id
+     * @param string $env_variable_id
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function action_get_env_variable(string $template_id, string $env_variable_id)
+    {
+        $validator = Validator::make([
+            'template_id'     => $template_id,
+            'env_variable_id' => $env_variable_id,
+        ], [
+            'template_id'     => ['required', 'string', 'max:255'],
+            'env_variable_id' => ['required', 'string', 'max:255'],
+        ]);
+
+        if ($validator->fails()) {
+            return Response::generate(400, 'error', 'Validation failed', $validator->errors());
+        }
+
+        $env_variable = TemplateEnvironmentVariable::where('id', $env_variable_id)
+            ->where('template_id', '=', $template_id)
+            ->first();
+
+        if (!$env_variable) {
+            return Response::generate(404, 'error', 'Environment variable not found');
+        }
+
+        return Response::generate(200, 'success', 'Environment variable retrieved successfully', [
+            'env_variable' => $env_variable->toArray(),
+        ]);
+    }
+
+    /**
+     * Add a new environment variable.
+     *
+     * @OA\Post(
+     *     path="/api/templates/{template_id}/env-variables",
+     *     summary="Add a new environment variable",
+     *     tags={"Templates"},
+     *
+     *     @OA\Parameter(ref="#/components/parameters/template_id"),
+     *
+     *     @OA\RequestBody(
+     *         required=true,
+     *
+     *         @OA\JsonContent(
+     *             type="object",
+     *
+     *             @OA\Property(property="key", type="string"),
+     *         )
+     *     ),
+     *
+     *     @OA\Response(response=200, description="Environment variable added successfully",
+     *
+     *         @OA\JsonContent(
+     *             type="object",
+     *
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="message", type="string", example="Environment variable added successfully"),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="env_variable", ref="#/components/schemas/TemplateEnvironmentVariable")
+     *             )
+     *         )
+     *     ),
+     *
+     *     @OA\Response(response=400, ref="#/components/responses/ValidationErrorResponse"),
+     *     @OA\Response(response=401, ref="#/components/responses/UnauthorizedResponse"),
+     *     @OA\Response(response=500, ref="#/components/responses/ServerErrorResponse")
+     * )
+     *
+     * @param string  $template_id
+     * @param Request $request
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function action_add_env_variable(string $template_id, Request $request)
+    {
+        $validator = Validator::make($request->toArray(), [
+            'template_id' => ['required', 'string'],
+            'key'         => ['required', 'string'],
+        ]);
+
+        if ($validator->fails()) {
+            return Response::generate(400, 'error', 'Validation failed', $validator->errors());
+        }
+
+        $template = Template::where('id', $template_id)->first();
+
+        if ($template->type == 'application') {
+            return Response::generate(400, 'error', 'Application templates do not support environment variables');
+        }
+
+        if (
+            $env_variable = TemplateEnvironmentVariable::create([
+                'template_id' => $template->id,
+                'key'         => $request->key,
+            ])
+        ) {
+            return Response::generate(200, 'success', 'Environment variable added successfully', [
+                'env_variable' => $env_variable->toArray(),
+            ]);
+        }
+
+        return Response::generate(500, 'error', 'Environment variable not created');
+    }
+
+    /**
+     * Update the port.
+     *
+     * @OA\Patch(
+     *     path="/api/templates/{template_id}/env-variables/{env_variable_id}",
+     *     summary="Update the environment variable",
+     *     tags={"Templates"},
+     *
+     *     @OA\Parameter(ref="#/components/parameters/template_id"),
+     *     @OA\Parameter(ref="#/components/parameters/port_id"),
+     *
+     *     @OA\RequestBody(
+     *         required=true,
+     *
+     *         @OA\JsonContent(
+     *             type="object",
+     *
+     *             @OA\Property(property="key", type="string"),
+     *         )
+     *     ),
+     *
+     *     @OA\Response(response=200, description="Environment variable updated successfully",
+     *
+     *         @OA\JsonContent(
+     *             type="object",
+     *
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="message", type="string", example="Port updated successfully"),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="env_variable", ref="#/components/schemas/TemplateEnvironmentVariable")
+     *             )
+     *         )
+     *     ),
+     *
+     *     @OA\Response(response=400, ref="#/components/responses/ValidationErrorResponse"),
+     *     @OA\Response(response=401, ref="#/components/responses/UnauthorizedResponse"),
+     *     @OA\Response(response=500, ref="#/components/responses/ServerErrorResponse")
+     * )
+     *
+     * @param string  $template_id
+     * @param string  $env_variable_id
+     * @param Request $request
+     * @param string  $port_id
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function action_update_env_variable(string $template_id, string $env_variable_id, Request $request)
+    {
+        $validator = Validator::make($request->toArray(), [
+            'template_id' => ['required', 'string'],
+            'key'         => ['required', 'string'],
+        ]);
+
+        if ($validator->fails()) {
+            return Response::generate(400, 'error', 'Validation failed', $validator->errors());
+        }
+
+        $env_variable = TemplateEnvironmentVariable::where('id', $env_variable_id)->first();
+
+        if (empty($env_variable)) {
+            return Response::generate(404, 'error', 'Environment variable not found');
+        }
+
+        $env_variable->update([
+            'template_id' => $request->template_id,
+            'key'         => $request->key,
+        ]);
+
+        return Response::generate(200, 'success', 'Environment variable updated successfully', [
+            'env_variable' => $env_variable->toArray(),
+        ]);
+    }
+
+    /**
+     * Delete the port.
+     *
+     * @OA\Delete(
+     *     path="/api/templates/{template_id}/env-variables/{env_variable_id}",
+     *     summary="Delete the environment variable",
+     *     tags={"Templates"},
+     *
+     *     @OA\Parameter(ref="#/components/parameters/template_id"),
+     *     @OA\Parameter(ref="#/components/parameters/env_variable_id"),
+     *
+     *     @OA\Response(response=200, description="Environment variable deleted successfully",
+     *
+     *         @OA\JsonContent(
+     *             type="object",
+     *
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="message", type="string", example="Environment variable deleted successfully"),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="env_variable", ref="#/components/schemas/TemplateEnvironmentVariable")
+     *             )
+     *         )
+     *     ),
+     *
+     *     @OA\Response(response=401, ref="#/components/responses/UnauthorizedResponse"),
+     *     @OA\Response(response=500, ref="#/components/responses/ServerErrorResponse")
+     * )
+     *
+     * @param string $template_id
+     * @param string $env_variable_id
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function action_delete_env_variable(string $template_id, string $env_variable_id)
+    {
+        $validator = Validator::make([
+            'template_id'     => $template_id,
+            'env_variable_id' => $env_variable_id,
+        ], [
+            'template_id'     => ['required', 'string', 'max:255'],
+            'env_variable_id' => ['required', 'string', 'max:255'],
+        ]);
+
+        if ($validator->fails()) {
+            return Response::generate(400, 'error', 'Validation failed', $validator->errors());
+        }
+
+        if (
+            $env_variable = TemplateEnvironmentVariable::where('id', $env_variable_id)->first()
+        ) {
+            $env_variable->delete();
+
+            return Response::generate(200, 'success', 'Environment variable deleted successfully', [
+                'env_variable' => $env_variable->toArray(),
+            ]);
+        }
+
+        return Response::generate(404, 'error', 'Environment variable not found');
     }
 }

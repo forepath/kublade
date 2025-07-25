@@ -56,7 +56,11 @@ class ClusterUpdate extends Job implements ShouldBeUnique
             $secretData[$data->key] = $data->value;
         });
 
-        if ($release = KopsDeployment::generate($cluster, $publicData, $secretData, true)) {
+        if ($kubeconfig = KopsDeployment::generate($cluster, $publicData, $secretData, true)) {
+            $cluster->k8sCredentials->update([
+                'kubeconfig' => $kubeconfig,
+            ]);
+
             $cluster->update([
                 'updated_at' => Carbon::now(),
             ]);

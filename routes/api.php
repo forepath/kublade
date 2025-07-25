@@ -67,6 +67,12 @@ Route::middleware([
     Route::patch('/templates/{template_id}/ports/{port_id}', [App\Http\Controllers\API\TemplateController::class, 'action_update_port'])->name('api.template.port.update')->middleware('api.permission.guard:templates.ports.update');
     Route::delete('/templates/{template_id}/ports/{port_id}', [App\Http\Controllers\API\TemplateController::class, 'action_delete_port'])->name('api.template.port.delete')->middleware('api.permission.guard:templates.ports.delete');
 
+    Route::get('/templates/{template_id}/env-variables', [App\Http\Controllers\API\TemplateController::class, 'action_list_env_variable'])->name('api.template.env-variable.list')->middleware('api.permission.guard:templates.env-variables.view');
+    Route::post('/templates/{template_id}/env-variables', [App\Http\Controllers\API\TemplateController::class, 'action_add_env_variable'])->name('api.template.env-variable.add')->middleware('api.permission.guard:templates.env-variables.add');
+    Route::get('/templates/{template_id}/env-variables/{env_variable_id}', [App\Http\Controllers\API\TemplateController::class, 'action_get_env_variable'])->name('api.template.env-variable.get')->middleware('api.permission.guard:templates.env-variables.view');
+    Route::patch('/templates/{template_id}/env-variables/{env_variable_id}', [App\Http\Controllers\API\TemplateController::class, 'action_update_env_variable'])->name('api.template.env-variable.update')->middleware('api.permission.guard:templates.env-variables.update');
+    Route::delete('/templates/{template_id}/env-variables/{env_variable_id}', [App\Http\Controllers\API\TemplateController::class, 'action_delete_env_variable'])->name('api.template.env-variable.delete')->middleware('api.permission.guard:templates.env-variables.delete');
+
     Route::get('/projects/{project_id}/clusters', [App\Http\Controllers\API\ClusterController::class, 'action_list'])->name('api.cluster.list')->middleware('api.permission.guard:projects.clusters.view');
     Route::post('/projects/{project_id}/clusters', [App\Http\Controllers\API\ClusterController::class, 'action_add'])->name('api.cluster.add')->middleware('api.permission.guard:projects.clusters.add');
     Route::get('/projects/{project_id}/clusters/{cluster_id}', [App\Http\Controllers\API\ClusterController::class, 'action_get'])->name('api.cluster.get')->middleware('api.permission.guard:projects.clusters.view');

@@ -130,6 +130,16 @@ class Template extends Model
     }
 
     /**
+     * Relation to template environment variables.
+     *
+     * @return HasMany
+     */
+    public function environmentVariables(): HasMany
+    {
+        return $this->hasMany(TemplateEnvironmentVariable::class, 'template_id', 'id');
+    }
+
+    /**
      * Relation to git credentials.
      *
      * @return HasOne

@@ -233,6 +233,16 @@ class Cluster extends Model
     }
 
     /**
+     * Relation to template environment variables.
+     *
+     * @return HasMany
+     */
+    public function environmentVariables(): HasMany
+    {
+        return $this->hasMany(ClusterEnvironmentVariable::class, 'cluster_id', 'id');
+    }
+
+    /**
      * Get the utility namespace.
      *
      * @return Ns|null

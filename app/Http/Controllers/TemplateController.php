@@ -8,6 +8,7 @@ use App\Helpers\Kubernetes\HelmManifests;
 use App\Models\Projects\Deployments\Deployment;
 use App\Models\Projects\Templates\Template;
 use App\Models\Projects\Templates\TemplateDirectory;
+use App\Models\Projects\Templates\TemplateEnvironmentVariable;
 use App\Models\Projects\Templates\TemplateField;
 use App\Models\Projects\Templates\TemplateFieldOption;
 use App\Models\Projects\Templates\TemplateFile;
@@ -1009,6 +1010,122 @@ class TemplateController extends Controller
             } catch (Exception $e) {
                 return redirect()->route('template.details', ['template_id' => $template->id])->with('warning', __('Ooops, something went wrong.'));
             }
+        }
+
+        return redirect()->back()->with('warning', __('Ooops, something went wrong.'));
+    }
+
+    /**
+     * Show the template add environment variable page.
+     *
+     * @param string $template_id
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function page_add_env_variable(string $template_id)
+    {
+        $template = Template::where('id', $template_id)->first();
+
+        if ($template->type == 'application') {
+            return redirect()->back()->with('warning', __('Application templates do not support environment variables.'));
+        }
+
+        return view('template.add-env-variable', [
+            'template' => $template,
+        ]);
+    }
+
+    /**
+     * Add a new environment variable.
+     *
+     * @param string  $template_id
+     * @param Request $request
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function action_add_env_variable(string $template_id, Request $request)
+    {
+        Validator::make($request->toArray(), [
+            'template_id' => ['required', 'string'],
+            'key'         => ['required', 'string'],
+        ])->validate();
+
+        $template = Template::where('id', $template_id)->first();
+
+        if ($template->type == 'application') {
+            return redirect()->back()->with('warning', __('Application templates do not support environment variables.'));
+        }
+
+        TemplateEnvironmentVariable::create([
+            'template_id' => $template->id,
+            'key'         => $request->key,
+        ]);
+
+        return redirect()->route('template.details', ['template_id' => $template_id])->with('success', __('Environment variable added.'));
+    }
+
+    /**
+     * Show the template update environment variable page.
+     *
+     * @param string $template_id
+     * @param string $env_variable_id
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function page_update_env_variable(string $template_id, string $env_variable_id)
+    {
+        return view('template.update-env-variable', [
+            'template'     => Template::where('id', $template_id)->first(),
+            'env_variable' => TemplateEnvironmentVariable::where('id', $env_variable_id)->first(),
+        ]);
+    }
+
+    /**
+     * Update the environment variable.
+     *
+     * @param string  $template_id
+     * @param string  $env_variable_id
+     * @param Request $request
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function action_update_env_variable(string $template_id, string $env_variable_id, Request $request)
+    {
+        Validator::make($request->toArray(), [
+            'template_id' => ['required', 'string'],
+            'key'         => ['required', 'string'],
+        ])->validate();
+
+        $env_variable = TemplateEnvironmentVariable::where('id', $env_variable_id)->first();
+
+        if (empty($env_variable)) {
+            return redirect()->back()->with('warning', __('Ooops, something went wrong.'));
+        }
+
+        $env_variable->update([
+            'template_id' => $request->template_id,
+            'key'         => $request->key,
+        ]);
+
+        return redirect()->route('template.details', ['template_id' => $template_id])->with('success', __('Environment variable updated.'));
+    }
+
+    /**
+     * Delete the environment variable.
+     *
+     * @param string $template_id
+     * @param string $env_variable_id
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function action_delete_env_variable(string $template_id, string $env_variable_id)
+    {
+        if (
+            $env_variable = TemplateEnvironmentVariable::where('id', $env_variable_id)->first()
+        ) {
+            $env_variable->delete();
+
+            return redirect()->route('template.details', ['template_id' => $template_id])->with('success', __('Environment variable deleted.'));
         }
 
         return redirect()->back()->with('warning', __('Ooops, something went wrong.'));

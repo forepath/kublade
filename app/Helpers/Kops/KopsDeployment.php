@@ -35,7 +35,7 @@ class KopsDeployment
      * @param array   $secretData
      * @param bool    $replaceExisting
      */
-    public static function generate(Cluster $cluster, array $data = [], array $secretData = [], bool $replaceExisting = false)
+    public static function generate(Cluster $cluster, array $data = [], array $secretData = [], bool $replaceExisting = false): string
     {
         if (Storage::disk('local')->exists($cluster->kopsPath) && !$replaceExisting) {
             throw new KopsException('Forbidden', 403);
@@ -93,6 +93,8 @@ class KopsDeployment
                 throw new KopsException('Failed to create cluster', 500);
             }
         });
+
+        return self::kubeconfig($cluster);
     }
 
     /**
@@ -161,6 +163,44 @@ class KopsDeployment
         if (!Storage::disk('local')->deleteDirectory($cluster->kopsPath)) {
             throw new KopsException('Server Error', 500);
         }
+    }
+
+    /**
+     * Generate a kubeconfig.
+     *
+     * @param Cluster $cluster
+     *
+     * @return string
+     */
+    public static function kubeconfig(Cluster $cluster): string
+    {
+        $s3Credentials = S3AccessCredential::where('access_key_id', $cluster->id)->first();
+
+        $path     = 'kubeconfig/' . $cluster->id . '.yaml';
+        $fullPath = Storage::disk('local')->path($path);
+
+        $cmd = ['kops', 'export', 'kubeconfig', '--all', '--admin', '--path', $fullPath];
+
+        $result = Process::timeout(config('process.timeout'))
+            ->env([
+                'S3_ENDPOINT'         => config('app.url') . '/s3',
+                'S3_FORCE_PATH_STYLE' => 'true',
+                'KOPS_STATE_STORE'    => 's3://' . $cluster->id,
+                ...($s3Credentials ? [
+                    'AWS_ACCESS_KEY_ID'     => $s3Credentials->access_key_id,
+                    'AWS_SECRET_ACCESS_KEY' => $s3Credentials->secret_access_key,
+                ] : []),
+            ])
+            ->run($cmd);
+
+        if (!$result->successful()) {
+            throw new KopsException('Failed to generate kubeconfig', 500);
+        }
+
+        $kubeconfig = Storage::disk('local')->get($path);
+        Storage::disk('local')->delete($path);
+
+        return $kubeconfig;
     }
 
     /**

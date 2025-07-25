@@ -58,12 +58,16 @@ class ClusterCreation extends Job implements ShouldBeUnique
         });
 
         try {
-            $release = KopsDeployment::generate($cluster, $publicData, $secretData, false);
+            $kubeconfig = KopsDeployment::generate($cluster, $publicData, $secretData, false);
         } catch (KopsException $exception) {
             throw $exception;
         }
 
-        if ($release) {
+        if ($kubeconfig) {
+            $cluster->k8sCredentials->update([
+                'kubeconfig' => $kubeconfig,
+            ]);
+
             $cluster->update([
                 'deployed_at' => Carbon::now(),
             ]);

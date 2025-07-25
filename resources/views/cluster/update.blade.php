@@ -48,7 +48,7 @@
                                     </div>
                                 </div>
 
-                                @if ($cluster->template->groupedFields->on_update->default->count() > 0 || $cluster->template->groupedFields->on_update->advanced->count() > 0)
+                                @if ($cluster->template->groupedFields->on_update->default->count() > 0 || $cluster->template->groupedFields->on_update->advanced->count() > 0 || $cluster->template->environmentVariables->count() > 0)
                                     <div class="mt-3 fields" id="fields{{ $cluster->template->id }}">
                                         @if ($cluster->template->groupedFields->on_update->default->count() > 0)
                                             @foreach ($cluster->template->groupedFields->on_update->default as $field)
@@ -231,6 +231,22 @@
                                                     </div>
                                                 @endforeach
                                             </div>
+                                        @endif
+                                        @if ($cluster->template->type === 'cluster')
+                                            @foreach ($cluster->template->environmentVariables as $environmentVariable)
+                                                @php
+                                                    $environmentVariableValue = $cluster->environmentVariables->where('template_env_variable_id', $environmentVariable->id)->first()?->value;
+                                                @endphp
+                                                <div class="row mt-3">
+                                                    <label class="col-md-4 col-form-label text-md-end" for="inputEnv_{{ $environmentVariable->id }}">
+                                                        {{ $environmentVariable->key }}
+                                                        <span class="small d-block lh-1">{{ __('Provider configuration') }}</span>
+                                                    </label>
+                                                    <div class="col-md-6 d-flex align-items-center">
+                                                        <input type="text" class="form-control" id="inputEnv_{{ $environmentVariable->id }}" name="env[{{ $cluster->template->id }}][{{ $environmentVariable->key }}]" value="{{ $environmentVariableValue }}">
+                                                    </div>
+                                                </div>
+                                            @endforeach
                                         @endif
                                     </div>
                                 @endif

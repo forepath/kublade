@@ -6,12 +6,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Kubernetes\Clusters\Cluster;
 use App\Models\Kubernetes\Clusters\ClusterData;
+use App\Models\Kubernetes\Clusters\ClusterEnvironmentVariable;
 use App\Models\Kubernetes\Clusters\ClusterSecretData;
 use App\Models\Kubernetes\Clusters\GitCredential;
 use App\Models\Kubernetes\Clusters\K8sCredential;
 use App\Models\Kubernetes\Clusters\Ns;
 use App\Models\Kubernetes\Clusters\Resource;
 use App\Models\Projects\Templates\Template;
+use App\Models\Projects\Templates\TemplateEnvironmentVariable;
 use App\Models\Projects\Templates\TemplateField;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -66,18 +68,20 @@ class ClusterController extends Controller
     public function action_add(Request $request)
     {
         Validator::make($request->all(), [
-            'template_id'               => ['nullable', 'string', 'max:255'],
-            'name'                      => ['required', 'string', 'max:255'],
-            'git'                       => ['required', 'array'],
-            'git.url'                   => ['required', 'string', 'max:255'],
-            'git.branch'                => ['required', 'string', 'max:255'],
-            'git.credentials'           => ['required', 'string'],
-            'git.username'              => ['required', 'string', 'max:255'],
-            'git.email'                 => ['required', 'email', 'max:255'],
-            'git.base_path'             => ['required', 'string', 'max:255'],
-            'k8s'                       => ['required', 'array'],
-            'k8s.api_url'               => ['required', 'string', 'max:255'],
-            'k8s.kubeconfig'            => ['required', 'string'],
+            'template_id'     => ['nullable', 'string', 'max:255'],
+            'name'            => ['required', 'string', 'max:255'],
+            'git'             => ['required', 'array'],
+            'git.url'         => ['required', 'string', 'max:255'],
+            'git.branch'      => ['required', 'string', 'max:255'],
+            'git.credentials' => ['required', 'string'],
+            'git.username'    => ['required', 'string', 'max:255'],
+            'git.email'       => ['required', 'email', 'max:255'],
+            'git.base_path'   => ['required', 'string', 'max:255'],
+            'k8s'             => ['required', 'array'],
+            'k8s.api_url'     => ['required', 'string', 'max:255'],
+            ...(! empty($request->template_id) ? [
+                'k8s.kubeconfig' => ['required', 'string'],
+            ] : []),
             'k8s.service_account_token' => ['required', 'string'],
             'k8s.node_prefix'           => ['nullable', 'string', 'max:255'],
             'namespace'                 => ['required', 'array'],
@@ -168,6 +172,10 @@ class ClusterController extends Controller
                     $validationRules['data.' . $template->id . '.' . $field->key] = $rules;
                 });
 
+                $template->environmentVariables->each(function (TemplateEnvironmentVariable $environmentVariable) use ($template, &$validationRules) {
+                    $validationRules['env.' . $template->id . '.' . $environmentVariable->key] = ['required', 'string', 'max:255'];
+                });
+
                 $validator = Validator::make($request->toArray(), $validationRules);
 
                 if ($validator->fails()) {
@@ -225,6 +233,16 @@ class ClusterController extends Controller
                         ]);
                     }
                 });
+
+                $requestEnvs = (object) (array_key_exists($request->template_id, $request->env ?? []) ? $request->env[$request->template_id] : []);
+
+                $template->environmentVariables->each(function (TemplateEnvironmentVariable $environmentVariable) use ($requestEnvs, $cluster) {
+                    ClusterEnvironmentVariable::create([
+                        'cluster_id'               => $cluster->id,
+                        'template_env_variable_id' => $environmentVariable->id,
+                        'value'                    => $requestEnvs->{$environmentVariable->key},
+                    ]);
+                });
             }
 
             GitCredential::create([
@@ -240,9 +258,13 @@ class ClusterController extends Controller
             K8sCredential::create([
                 'cluster_id'            => $cluster->id,
                 'api_url'               => $request->k8s['api_url'],
-                'kubeconfig'            => $request->k8s['kubeconfig'],
                 'service_account_token' => $request->k8s['service_account_token'],
                 'node_prefix'           => $request->k8s['node_prefix'],
+                ...(empty($cluster->template) ? [
+                    'kubeconfig' => $request->k8s['kubeconfig'],
+                ] : [
+                    'kubeconfig' => '',
+                ]),
             ]);
 
             Ns::create([
@@ -326,7 +348,6 @@ class ClusterController extends Controller
             'git.base_path'             => ['required', 'string', 'max:255'],
             'k8s'                       => ['required', 'array'],
             'k8s.api_url'               => ['required', 'string', 'max:255'],
-            'k8s.kubeconfig'            => ['required', 'string'],
             'k8s.service_account_token' => ['required', 'string'],
             'k8s.node_prefix'           => ['nullable', 'string', 'max:255'],
             'namespace'                 => ['required', 'array'],
@@ -403,6 +424,10 @@ class ClusterController extends Controller
                     $validationRules['data.' . $cluster->template->id . '.' . $field->key] = $rules;
                 });
 
+                $cluster->template->environmentVariables->each(function (TemplateEnvironmentVariable $environmentVariable) use ($cluster, &$validationRules) {
+                    $validationRules['env.' . $cluster->template->id . '.' . $environmentVariable->key] = ['required', 'string', 'max:255'];
+                });
+
                 $validator = Validator::make($request->toArray(), $validationRules);
 
                 if ($validator->fails()) {
@@ -452,6 +477,20 @@ class ClusterController extends Controller
                         });
                     }
                 });
+
+                $requestEnvs = (object) (array_key_exists($cluster->template->id, $request->env ?? []) ? $request->env[$cluster->template->id] : []);
+
+                $cluster->template->environmentVariables->each(function (TemplateEnvironmentVariable $environmentVariable) use ($requestEnvs, $cluster) {
+                    $cluster->environmentVariables->where('template_env_variable_id', '=', $environmentVariable->id)->each(function (ClusterEnvironmentVariable $clusterEnvironmentVariable) use ($requestEnvs, $environmentVariable) {
+                        $clusterEnvironmentVariable->update([
+                            'value' => $requestEnvs->{$environmentVariable->key},
+                        ]);
+                    });
+                });
+            } else {
+                Validator::make($request->all(), [
+                    'k8s.kubeconfig' => ['required', 'string'],
+                ])->validate();
             }
 
             if ($cluster->gitCredentials) {
@@ -478,17 +517,25 @@ class ClusterController extends Controller
             if ($cluster->k8sCredentials) {
                 $cluster->k8sCredentials->update([
                     'api_url'               => $request->k8s['api_url'],
-                    'kubeconfig'            => $request->k8s['kubeconfig'],
                     'service_account_token' => $request->k8s['service_account_token'],
                     'node_prefix'           => $request->k8s['node_prefix'],
+                    ...(empty($cluster->template) ? [
+                        'kubeconfig' => $request->k8s['kubeconfig'],
+                    ] : [
+                        'kubeconfig' => '',
+                    ]),
                 ]);
             } else {
                 K8sCredential::create([
                     'cluster_id'            => $cluster->id,
                     'api_url'               => $request->k8s['api_url'],
-                    'kubeconfig'            => $request->k8s['kubeconfig'],
                     'service_account_token' => $request->k8s['service_account_token'],
                     'node_prefix'           => $request->k8s['node_prefix'],
+                    ...(empty($cluster->template) ? [
+                        'kubeconfig' => $request->k8s['kubeconfig'],
+                    ] : [
+                        'kubeconfig' => '',
+                    ]),
                 ]);
             }
 
