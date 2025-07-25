@@ -104,9 +104,10 @@ class Project extends Model
     {
         $clusterMetrics = $this->clusters->map(function (Cluster $cluster) {
             return $cluster->statistics;
-        });
+        })->filter();
 
         return [
+            'unknown' => $clusterMetrics->isEmpty(),
             'metrics' => [
                 'capacity' => [
                     'cpu'     => (clone $clusterMetrics)->sum('metrics.capacity.cpu'),
@@ -155,9 +156,14 @@ class Project extends Model
 
         $clusterStatistics = $projects->map(function (Project $project) {
             return $project->clusterStatistics;
-        });
+        })->filter();
+
+        $hasStatistics = (clone $clusterStatistics)->map(function ($clusterStatistics) {
+            return $clusterStatistics['unknown'];
+        })->contains(false);
 
         return [
+            'unknown' => !$hasStatistics,
             'metrics' => [
                 'capacity' => [
                     'cpu'     => (clone $clusterStatistics)->sum('metrics.capacity.cpu'),

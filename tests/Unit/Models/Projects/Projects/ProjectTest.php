@@ -383,16 +383,16 @@ class ProjectTest extends TestCase
         $this->assertEquals(200.0, $statistics['metrics']['utilization']['storage']); // 50.0 * 2 * 2
         $this->assertEquals(200.0, $statistics['metrics']['utilization']['pods']); // 50.0 * 2 * 2
 
-        // Test alerts (should all be true since contains() doesn't support dot notation and will always return false)
-        $this->assertTrue($statistics['alerts']['warning']['cpu']);
-        $this->assertTrue($statistics['alerts']['warning']['memory']);
-        $this->assertTrue($statistics['alerts']['warning']['storage']);
-        $this->assertTrue($statistics['alerts']['warning']['pods']);
+        // Test alerts (should all be false since no alert/limit resources are configured)
+        $this->assertFalse($statistics['alerts']['warning']['cpu']);
+        $this->assertFalse($statistics['alerts']['warning']['memory']);
+        $this->assertFalse($statistics['alerts']['warning']['storage']);
+        $this->assertFalse($statistics['alerts']['warning']['pods']);
 
-        $this->assertTrue($statistics['alerts']['critical']['cpu']);
-        $this->assertTrue($statistics['alerts']['critical']['memory']);
-        $this->assertTrue($statistics['alerts']['critical']['storage']);
-        $this->assertTrue($statistics['alerts']['critical']['pods']);
+        $this->assertFalse($statistics['alerts']['critical']['cpu']);
+        $this->assertFalse($statistics['alerts']['critical']['memory']);
+        $this->assertFalse($statistics['alerts']['critical']['storage']);
+        $this->assertFalse($statistics['alerts']['critical']['pods']);
     }
 
     /**

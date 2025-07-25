@@ -114,7 +114,7 @@
                                                     <div class="d-flex flex-column gap-1 flex-grow-1">
                                                         <span class="small fw-bold">{{ __('CPU') }}</span>
                                                         <div class="border rounded d-flex gap-3 align-items-center">
-                                                            <i class="bi bi-exclamation-circle text-danger fs-4 bg-light p-3 lh-1 rounded"></i>
+                                                            <i class="bi bi-question-circle fs-4 bg-light p-3 lh-1 rounded"></i>
                                                             <span class="me-3">
                                                                 <span class="lh-1">{{ __('N/A') }}</span>
                                                             </span>
@@ -123,7 +123,7 @@
                                                     <div class="d-flex flex-column gap-1 flex-grow-1">
                                                         <span class="small fw-bold">{{ __('Memory') }}</span>
                                                         <div class="border rounded d-flex gap-3 align-items-center">
-                                                        <i class="bi bi-exclamation-circle text-danger fs-4 bg-light p-3 lh-1 rounded"></i>
+                                                        <i class="bi bi-question-circle fs-4 bg-light p-3 lh-1 rounded"></i>
                                                             <span class="me-3">
                                                                 <span class="lh-1">{{ __('N/A') }}</span>
                                                             </span>
@@ -132,7 +132,7 @@
                                                     <div class="d-flex flex-column gap-1 flex-grow-1">
                                                         <span class="small fw-bold">{{ __('Storage') }}</span>
                                                         <div class="border rounded d-flex gap-3 align-items-center">
-                                                            <i class="bi bi-exclamation-circle text-danger fs-4 bg-light p-3 lh-1 rounded"></i>
+                                                            <i class="bi bi-question-circle fs-4 bg-light p-3 lh-1 rounded"></i>
                                                             <span class="me-3">
                                                                 <span class="lh-1">{{ __('N/A') }}</span>
                                                             </span>
@@ -141,7 +141,7 @@
                                                     <div class="d-flex flex-column gap-1 flex-grow-1">
                                                         <span class="small fw-bold">{{ __('Pods') }}</span>
                                                         <div class="border rounded d-flex gap-3 align-items-center">
-                                                            <i class="bi bi-exclamation-circle text-danger fs-4 bg-light p-3 lh-1 rounded"></i>
+                                                            <i class="bi bi-question-circle fs-4 bg-light p-3 lh-1 rounded"></i>
                                                             <span class="me-3">
                                                                 <span class="lh-1">{{ __('N/A') }}</span>
                                                             </span>
