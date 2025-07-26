@@ -25,7 +25,7 @@
                                 @foreach ($activities as $activity)
                                     <tr class="align-middle">
                                         <td class="w-100">{{ $activity->created_at->format('Y-m-d H:i:s') }}</td>
-                                        <td>{{ $activity->causer->name }}</td>
+                                        <td>{{ $activity->causer?->name ?? __('System') }}</td>
                                         <td class="text-capitalize">
                                             @if ($activity->event == 'created')
                                                 <span class="badge bg-success">{{ __('Created') }}</span>

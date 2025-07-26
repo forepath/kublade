@@ -141,6 +141,12 @@ class HelmManifestsTest extends TestCase
                 $this->dirHolder = $dirHolder;
             }
 
+            public function timeout($timeout)
+            {
+                // Return self to allow method chaining
+                return $this;
+            }
+
             public function run($command)
             {
                 // Check if this is a helm pull command

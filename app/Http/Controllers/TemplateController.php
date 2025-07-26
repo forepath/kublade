@@ -8,6 +8,7 @@ use App\Helpers\Kubernetes\HelmManifests;
 use App\Models\Projects\Deployments\Deployment;
 use App\Models\Projects\Templates\Template;
 use App\Models\Projects\Templates\TemplateDirectory;
+use App\Models\Projects\Templates\TemplateEnvironmentVariable;
 use App\Models\Projects\Templates\TemplateField;
 use App\Models\Projects\Templates\TemplateFieldOption;
 use App\Models\Projects\Templates\TemplateFile;
@@ -30,15 +31,16 @@ class TemplateController extends Controller
     /**
      * Show the template dashboard.
      *
-     * @param string $template_id
-     * @param string $file_id
+     * @param Request $request
+     * @param string  $template_id
+     * @param string  $file_id
      *
      * @return \Illuminate\Contracts\Support\Renderable
      */
-    public function page_index(string $template_id = null, string $file_id = null)
+    public function page_index(Request $request, ?string $template_id = null, ?string $file_id = null)
     {
         return view('template.index', [
-            'templates' => Template::paginate(10),
+            'templates' => Template::where('type', $request->type ?? 'application')->paginate(10),
             'template'  => $template_id ? Template::where('id', $template_id)->first() : null,
             'file'      => $file_id ? TemplateFile::where('id', $file_id)->first() : null,
         ]);
@@ -64,6 +66,7 @@ class TemplateController extends Controller
     public function action_add(Request $request)
     {
         Validator::make($request->toArray(), [
+            'type'   => ['required', 'string', 'in:application,cluster'],
             'name'   => ['required', 'string', 'max:255'],
             'netpol' => ['nullable', 'boolean'],
         ])->validate();
@@ -71,6 +74,7 @@ class TemplateController extends Controller
         if (
             $template = Template::create([
                 'user_id' => Auth::id(),
+                'type'    => $request->type,
                 'name'    => $request->name,
                 'netpol'  => ! empty($request->netpol),
             ])
@@ -145,7 +149,7 @@ class TemplateController extends Controller
                 $template->gitCredentials()->delete();
             }
 
-            return redirect()->route('template.index')->with('success', __('Template updated.'));
+            return redirect()->route('template.index', ['type' => $template->type])->with('success', __('Template updated.'));
         }
 
         return redirect()->back()->with('warning', __('Ooops, something went wrong.'));
@@ -164,7 +168,7 @@ class TemplateController extends Controller
             $template->gitCredentials()->delete();
             $template->delete();
 
-            return redirect()->route('template.index')->with('success', __('Template deleted.'));
+            return redirect()->route('template.index', ['type' => $template->type])->with('success', __('Template deleted.'));
         }
 
         return redirect()->back()->with('warning', __('Ooops, something went wrong.'));
@@ -315,6 +319,7 @@ class TemplateController extends Controller
             'name'                  => ['required', 'string', 'max:255'],
             'template_directory_id' => ['nullable', 'string', 'max:255'],
             'mime_type'             => ['required', 'string', 'max:255'],
+            'sort'                  => ['nullable', 'integer'],
         ])->validate();
 
         if (
@@ -324,6 +329,7 @@ class TemplateController extends Controller
                 'name'                  => $request->name,
                 'mime_type'             => $request->mime_type,
                 'content'               => '',
+                'sort'                  => $request->sort,
             ])
         ) {
             Deployment::where('delete', '=', false)
@@ -374,6 +380,7 @@ class TemplateController extends Controller
             'template_directory_id' => ['nullable', 'string', 'max:255'],
             'mime_type'             => ['required', 'string', 'max:255'],
             'content'               => ['nullable', 'string'],
+            'sort'                  => ['nullable', 'integer'],
         ])->validate();
 
         if (
@@ -386,6 +393,7 @@ class TemplateController extends Controller
                 'template_directory_id' => $request->template_directory_id,
                 'mime_type'             => $request->mime_type,
                 ...($request->content ? ['content' => $request->content] : []),
+                'sort' => $request->sort,
             ]);
 
             Deployment::where('delete', '=', false)
@@ -769,8 +777,14 @@ class TemplateController extends Controller
      */
     public function page_add_port(string $template_id)
     {
+        $template = Template::where('id', $template_id)->first();
+
+        if ($template->type == 'cluster') {
+            return redirect()->back()->with('warning', __('Cluster templates do not support ports.'));
+        }
+
         return view('template.add-port', [
-            'template' => Template::where('id', $template_id)->first(),
+            'template' => $template,
         ]);
     }
 
@@ -792,8 +806,14 @@ class TemplateController extends Controller
             'random'         => ['nullable', 'boolean'],
         ])->validate();
 
+        $template = Template::where('id', $template_id)->first();
+
+        if ($template->type == 'cluster') {
+            return redirect()->back()->with('warning', __('Cluster templates do not support ports.'));
+        }
+
         TemplatePort::create([
-            'template_id'    => $request->template_id,
+            'template_id'    => $template->id,
             'group'          => $request->group,
             'claim'          => $request->claim,
             'preferred_port' => $request->preferred_port,
@@ -883,6 +903,10 @@ class TemplateController extends Controller
      */
     public function page_import()
     {
+        if (request()->type == 'cluster') {
+            return redirect()->back()->with('warning', __('Cluster templates do not support imports.'));
+        }
+
         return view('template.import');
     }
 
@@ -950,7 +974,8 @@ class TemplateController extends Controller
      */
     public function action_sync(Request $request)
     {
-        $validator = Validator::make($request->toArray(), [
+        Validator::make($request->toArray(), [
+            'type'            => ['required', 'string', 'in:application,cluster'],
             'name'            => ['required', 'string', 'max:255'],
             'netpol'          => ['nullable', 'boolean'],
             'git'             => ['required', 'array'],
@@ -960,11 +985,12 @@ class TemplateController extends Controller
             'git.username'    => ['required', 'string', 'max:255'],
             'git.email'       => ['required', 'email', 'max:255'],
             'git.base_path'   => ['required', 'string', 'max:255'],
-        ]);
+        ])->validate();
 
         if (
             $template = Template::create([
                 'user_id' => Auth::id(),
+                'type'    => $request->type,
                 'name'    => $request->name,
                 'netpol'  => ! empty($request->netpol),
             ])
@@ -984,6 +1010,122 @@ class TemplateController extends Controller
             } catch (Exception $e) {
                 return redirect()->route('template.details', ['template_id' => $template->id])->with('warning', __('Ooops, something went wrong.'));
             }
+        }
+
+        return redirect()->back()->with('warning', __('Ooops, something went wrong.'));
+    }
+
+    /**
+     * Show the template add environment variable page.
+     *
+     * @param string $template_id
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function page_add_env_variable(string $template_id)
+    {
+        $template = Template::where('id', $template_id)->first();
+
+        if ($template->type == 'application') {
+            return redirect()->back()->with('warning', __('Application templates do not support environment variables.'));
+        }
+
+        return view('template.add-env-variable', [
+            'template' => $template,
+        ]);
+    }
+
+    /**
+     * Add a new environment variable.
+     *
+     * @param string  $template_id
+     * @param Request $request
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function action_add_env_variable(string $template_id, Request $request)
+    {
+        Validator::make($request->toArray(), [
+            'template_id' => ['required', 'string'],
+            'key'         => ['required', 'string'],
+        ])->validate();
+
+        $template = Template::where('id', $template_id)->first();
+
+        if ($template->type == 'application') {
+            return redirect()->back()->with('warning', __('Application templates do not support environment variables.'));
+        }
+
+        TemplateEnvironmentVariable::create([
+            'template_id' => $template->id,
+            'key'         => $request->key,
+        ]);
+
+        return redirect()->route('template.details', ['template_id' => $template_id])->with('success', __('Environment variable added.'));
+    }
+
+    /**
+     * Show the template update environment variable page.
+     *
+     * @param string $template_id
+     * @param string $env_variable_id
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function page_update_env_variable(string $template_id, string $env_variable_id)
+    {
+        return view('template.update-env-variable', [
+            'template'     => Template::where('id', $template_id)->first(),
+            'env_variable' => TemplateEnvironmentVariable::where('id', $env_variable_id)->first(),
+        ]);
+    }
+
+    /**
+     * Update the environment variable.
+     *
+     * @param string  $template_id
+     * @param string  $env_variable_id
+     * @param Request $request
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function action_update_env_variable(string $template_id, string $env_variable_id, Request $request)
+    {
+        Validator::make($request->toArray(), [
+            'template_id' => ['required', 'string'],
+            'key'         => ['required', 'string'],
+        ])->validate();
+
+        $env_variable = TemplateEnvironmentVariable::where('id', $env_variable_id)->first();
+
+        if (empty($env_variable)) {
+            return redirect()->back()->with('warning', __('Ooops, something went wrong.'));
+        }
+
+        $env_variable->update([
+            'template_id' => $request->template_id,
+            'key'         => $request->key,
+        ]);
+
+        return redirect()->route('template.details', ['template_id' => $template_id])->with('success', __('Environment variable updated.'));
+    }
+
+    /**
+     * Delete the environment variable.
+     *
+     * @param string $template_id
+     * @param string $env_variable_id
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function action_delete_env_variable(string $template_id, string $env_variable_id)
+    {
+        if (
+            $env_variable = TemplateEnvironmentVariable::where('id', $env_variable_id)->first()
+        ) {
+            $env_variable->delete();
+
+            return redirect()->route('template.details', ['template_id' => $template_id])->with('success', __('Environment variable deleted.'));
         }
 
         return redirect()->back()->with('warning', __('Ooops, something went wrong.'));

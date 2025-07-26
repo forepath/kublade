@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Helpers\API;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\MessageBag;
 use Throwable;
 
 class Response
@@ -19,7 +20,7 @@ class Response
      *
      * @return JsonResponse
      */
-    public static function generate(int $code, string $status, string $message, array | Throwable | null $data = null): JsonResponse
+    public static function generate(int $code, string $status, string $message, array | Throwable | MessageBag | null $data = null): JsonResponse
     {
         $response = [
             'status'  => $status,

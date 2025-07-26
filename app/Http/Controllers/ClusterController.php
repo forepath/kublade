@@ -5,13 +5,21 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Kubernetes\Clusters\Cluster;
+use App\Models\Kubernetes\Clusters\ClusterData;
+use App\Models\Kubernetes\Clusters\ClusterEnvironmentVariable;
+use App\Models\Kubernetes\Clusters\ClusterSecretData;
 use App\Models\Kubernetes\Clusters\GitCredential;
 use App\Models\Kubernetes\Clusters\K8sCredential;
 use App\Models\Kubernetes\Clusters\Ns;
 use App\Models\Kubernetes\Clusters\Resource;
+use App\Models\Projects\Templates\Template;
+use App\Models\Projects\Templates\TemplateEnvironmentVariable;
+use App\Models\Projects\Templates\TemplateField;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 /**
  * Class ClusterController.
@@ -45,7 +53,9 @@ class ClusterController extends Controller
      */
     public function page_add()
     {
-        return view('cluster.add');
+        return view('cluster.add', [
+            'templates' => Template::where('type', '=', 'cluster')->get(),
+        ]);
     }
 
     /**
@@ -58,17 +68,20 @@ class ClusterController extends Controller
     public function action_add(Request $request)
     {
         Validator::make($request->all(), [
-            'name'                      => ['required', 'string', 'max:255'],
-            'git'                       => ['required', 'array'],
-            'git.url'                   => ['required', 'string', 'max:255'],
-            'git.branch'                => ['required', 'string', 'max:255'],
-            'git.credentials'           => ['required', 'string'],
-            'git.username'              => ['required', 'string', 'max:255'],
-            'git.email'                 => ['required', 'email', 'max:255'],
-            'git.base_path'             => ['required', 'string', 'max:255'],
-            'k8s'                       => ['required', 'array'],
-            'k8s.api_url'               => ['required', 'string', 'max:255'],
-            'k8s.kubeconfig'            => ['required', 'string'],
+            'template_id'     => ['nullable', 'string', 'max:255'],
+            'name'            => ['required', 'string', 'max:255'],
+            'git'             => ['required', 'array'],
+            'git.url'         => ['required', 'string', 'max:255'],
+            'git.branch'      => ['required', 'string', 'max:255'],
+            'git.credentials' => ['required', 'string'],
+            'git.username'    => ['required', 'string', 'max:255'],
+            'git.email'       => ['required', 'email', 'max:255'],
+            'git.base_path'   => ['required', 'string', 'max:255'],
+            'k8s'             => ['required', 'array'],
+            'k8s.api_url'     => ['required', 'string', 'max:255'],
+            ...(! empty($request->template_id) ? [
+                'k8s.kubeconfig' => ['required', 'string'],
+            ] : []),
             'k8s.service_account_token' => ['required', 'string'],
             'k8s.node_prefix'           => ['nullable', 'string', 'max:255'],
             'namespace'                 => ['required', 'array'],
@@ -89,11 +102,149 @@ class ClusterController extends Controller
 
         if (
             $cluster = Cluster::create([
-                'project_id' => $request->project_id,
-                'user_id'    => Auth::user()->id,
-                'name'       => $request->name,
+                'project_id'  => $request->project_id,
+                'user_id'     => Auth::user()->id,
+                'template_id' => $request->template_id,
+                'name'        => $request->name,
             ])
         ) {
+            if (
+                ! empty($request->template_id) &&
+                ! empty(
+                    $template = Template::where('id', '=', $request->template_id)
+                        ->where('type', '=', 'cluster')
+                        ->first()
+                )
+            ) {
+                $template->fields->each(function (TemplateField $field) use ($template, &$validationRules) {
+                    if (! $field->set_on_create) {
+                        return;
+                    }
+
+                    $rules = [];
+
+                    if ($field->required) {
+                        $rules[] = 'required';
+                    } else {
+                        $rules[] = 'nullable';
+                    }
+
+                    switch ($field->type) {
+                        case 'input_number':
+                        case 'input_range':
+                            $rules[] = 'numeric';
+
+                            if (! empty($field->min)) {
+                                $rules[] = 'min:' . $field->min;
+                            }
+
+                            if (! empty($field->max)) {
+                                $rules[] = 'max:' . $field->max;
+                            }
+
+                            if (! empty($field->step)) {
+                                $rules[] = 'multiple_of:' . $field->step;
+                            }
+
+                            break;
+                        case 'input_radio':
+                        case 'input_radio_image':
+                        case 'select':
+                            $availableOptions = $field->options
+                                ->pluck('value')
+                                ->toArray();
+
+                            if (! empty($field->value)) {
+                                $availableOptions[] = $field->value;
+                            }
+
+                            $rules[] = Rule::in($availableOptions);
+
+                            break;
+                        case 'input_text':
+                        case 'textarea':
+                        default:
+                            $rules[] = 'string';
+
+                            break;
+                    }
+
+                    $validationRules['data.' . $template->id . '.' . $field->key] = $rules;
+                });
+
+                $template->environmentVariables->each(function (TemplateEnvironmentVariable $environmentVariable) use ($template, &$validationRules) {
+                    $validationRules['env.' . $template->id . '.' . $environmentVariable->key] = ['required', 'string', 'max:255'];
+                });
+
+                $validator = Validator::make($request->toArray(), $validationRules);
+
+                if ($validator->fails()) {
+                    $cluster->delete();
+
+                    return redirect()->back()->with('warning', __('Ooops, something went wrong.'));
+                }
+
+                $requestFields = (object) (array_key_exists($request->template_id, $request->data ?? []) ? $request->data[$request->template_id] : []);
+
+                $template->fields->each(function (TemplateField $field) use ($requestFields, $cluster) {
+                    if ($field->type === 'input_radio' || $field->type === 'input_radio_image') {
+                        $option = null;
+
+                        if ($field->set_on_create) {
+                            $option = $field->options
+                                ->where('value', '=', $requestFields->{$field->key})
+                                ->first();
+                        }
+
+                        if (empty($option)) {
+                            $option = $field->options
+                                ->where('default', '=', true)
+                                ->first();
+                        }
+
+                        if (! empty($option)) {
+                            $value = $option->value;
+                        }
+
+                        if (empty($value)) {
+                            $value = $requestFields->{$field->key};
+                        }
+                    } else {
+                        if ($field->set_on_create) {
+                            $value = $requestFields->{$field->key} ?? '';
+                        } else {
+                            $value = $field->value ?? '';
+                        }
+                    }
+
+                    if ($field->secret) {
+                        ClusterSecretData::create([
+                            'cluster_id'        => $cluster->id,
+                            'template_field_id' => $field->id,
+                            'key'               => $field->key,
+                            'value'             => $value,
+                        ]);
+                    } else {
+                        ClusterData::create([
+                            'cluster_id'        => $cluster->id,
+                            'template_field_id' => $field->id,
+                            'key'               => $field->key,
+                            'value'             => $value,
+                        ]);
+                    }
+                });
+
+                $requestEnvs = (object) (array_key_exists($request->template_id, $request->env ?? []) ? $request->env[$request->template_id] : []);
+
+                $template->environmentVariables->each(function (TemplateEnvironmentVariable $environmentVariable) use ($requestEnvs, $cluster) {
+                    ClusterEnvironmentVariable::create([
+                        'cluster_id'               => $cluster->id,
+                        'template_env_variable_id' => $environmentVariable->id,
+                        'value'                    => $requestEnvs->{$environmentVariable->key},
+                    ]);
+                });
+            }
+
             GitCredential::create([
                 'cluster_id'  => $cluster->id,
                 'url'         => $request->git['url'],
@@ -107,9 +258,13 @@ class ClusterController extends Controller
             K8sCredential::create([
                 'cluster_id'            => $cluster->id,
                 'api_url'               => $request->k8s['api_url'],
-                'kubeconfig'            => $request->k8s['kubeconfig'],
                 'service_account_token' => $request->k8s['service_account_token'],
                 'node_prefix'           => $request->k8s['node_prefix'],
+                ...(empty($cluster->template) ? [
+                    'kubeconfig' => $request->k8s['kubeconfig'],
+                ] : [
+                    'kubeconfig' => '',
+                ]),
             ]);
 
             Ns::create([
@@ -193,7 +348,6 @@ class ClusterController extends Controller
             'git.base_path'             => ['required', 'string', 'max:255'],
             'k8s'                       => ['required', 'array'],
             'k8s.api_url'               => ['required', 'string', 'max:255'],
-            'k8s.kubeconfig'            => ['required', 'string'],
             'k8s.service_account_token' => ['required', 'string'],
             'k8s.node_prefix'           => ['nullable', 'string', 'max:255'],
             'namespace'                 => ['required', 'array'],
@@ -213,9 +367,131 @@ class ClusterController extends Controller
         ])->validate();
 
         if ($cluster = Cluster::where('id', $cluster_id)->first()) {
-            $cluster->update([
-                'name' => $request->name,
-            ]);
+            if (! empty($cluster->template)) {
+                $cluster->template->fields->each(function (TemplateField $field) use ($cluster, &$validationRules) {
+                    if (! $field->set_on_update) {
+                        return;
+                    }
+
+                    $rules = [];
+
+                    if ($field->required) {
+                        $rules[] = 'required';
+                    } else {
+                        $rules[] = 'nullable';
+                    }
+
+                    switch ($field->type) {
+                        case 'input_number':
+                        case 'input_range':
+                            $rules[] = 'numeric';
+
+                            if (! empty($field->min)) {
+                                $rules[] = 'min:' . $field->min;
+                            }
+
+                            if (! empty($field->max)) {
+                                $rules[] = 'max:' . $field->max;
+                            }
+
+                            if (! empty($field->step)) {
+                                $rules[] = 'multiple_of:' . $field->step;
+                            }
+
+                            break;
+                        case 'input_radio':
+                        case 'input_radio_image':
+                        case 'select':
+                            $availableOptions = $field->options
+                                ->pluck('value')
+                                ->toArray();
+
+                            if (! empty($field->value)) {
+                                $availableOptions[] = $field->value;
+                            }
+
+                            $rules[] = Rule::in($availableOptions);
+
+                            break;
+                        case 'input_text':
+                        case 'textarea':
+                        default:
+                            $rules[] = 'string';
+
+                            break;
+                    }
+
+                    $validationRules['data.' . $cluster->template->id . '.' . $field->key] = $rules;
+                });
+
+                $cluster->template->environmentVariables->each(function (TemplateEnvironmentVariable $environmentVariable) use ($cluster, &$validationRules) {
+                    $validationRules['env.' . $cluster->template->id . '.' . $environmentVariable->key] = ['required', 'string', 'max:255'];
+                });
+
+                $validator = Validator::make($request->toArray(), $validationRules);
+
+                if ($validator->fails()) {
+                    return redirect()->back()->with('warning', __('Ooops, something went wrong.'));
+                }
+
+                $requestFields = (object) (array_key_exists($cluster->template->id, $request->data ?? []) ? $request->data[$cluster->template->id] : []);
+
+                $cluster->template->fields->each(function (TemplateField $field) use ($requestFields, $cluster) {
+                    if (! $field->set_on_update) {
+                        return;
+                    }
+
+                    if ($field->type === 'input_radio' || $field->type === 'input_radio_image') {
+                        $option = $field->options
+                            ->where('value', '=', $requestFields->{$field->key})
+                            ->first();
+
+                        if (empty($option)) {
+                            $option = $field->options
+                                ->where('default', '=', true)
+                                ->first();
+                        }
+
+                        if (! empty($option)) {
+                            $value = $option->value;
+                        }
+
+                        if (empty($value)) {
+                            $value = $requestFields->{$field->key};
+                        }
+                    } else {
+                        $value = $requestFields->{$field->key} ?? '';
+                    }
+
+                    if ($field->secret) {
+                        $cluster->clusterSecretData->where('template_field_id', '=', $field->id)->each(function (ClusterSecretData $clusterSecretData) use ($value) {
+                            $clusterSecretData->update([
+                                'value' => $value,
+                            ]);
+                        });
+                    } else {
+                        $cluster->clusterData->where('template_field_id', '=', $field->id)->each(function (ClusterData $clusterData) use ($value) {
+                            $clusterData->update([
+                                'value' => $value,
+                            ]);
+                        });
+                    }
+                });
+
+                $requestEnvs = (object) (array_key_exists($cluster->template->id, $request->env ?? []) ? $request->env[$cluster->template->id] : []);
+
+                $cluster->template->environmentVariables->each(function (TemplateEnvironmentVariable $environmentVariable) use ($requestEnvs, $cluster) {
+                    $cluster->environmentVariables->where('template_env_variable_id', '=', $environmentVariable->id)->each(function (ClusterEnvironmentVariable $clusterEnvironmentVariable) use ($requestEnvs, $environmentVariable) {
+                        $clusterEnvironmentVariable->update([
+                            'value' => $requestEnvs->{$environmentVariable->key},
+                        ]);
+                    });
+                });
+            } else {
+                Validator::make($request->all(), [
+                    'k8s.kubeconfig' => ['required', 'string'],
+                ])->validate();
+            }
 
             if ($cluster->gitCredentials) {
                 $cluster->gitCredentials->update([
@@ -241,17 +517,25 @@ class ClusterController extends Controller
             if ($cluster->k8sCredentials) {
                 $cluster->k8sCredentials->update([
                     'api_url'               => $request->k8s['api_url'],
-                    'kubeconfig'            => $request->k8s['kubeconfig'],
                     'service_account_token' => $request->k8s['service_account_token'],
                     'node_prefix'           => $request->k8s['node_prefix'],
+                    ...(empty($cluster->template) ? [
+                        'kubeconfig' => $request->k8s['kubeconfig'],
+                    ] : [
+                        'kubeconfig' => '',
+                    ]),
                 ]);
             } else {
                 K8sCredential::create([
                     'cluster_id'            => $cluster->id,
                     'api_url'               => $request->k8s['api_url'],
-                    'kubeconfig'            => $request->k8s['kubeconfig'],
                     'service_account_token' => $request->k8s['service_account_token'],
                     'node_prefix'           => $request->k8s['node_prefix'],
+                    ...(empty($cluster->template) ? [
+                        'kubeconfig' => $request->k8s['kubeconfig'],
+                    ] : [
+                        'kubeconfig' => '',
+                    ]),
                 ]);
             }
 
@@ -315,6 +599,14 @@ class ClusterController extends Controller
                 ]);
             }
 
+            $cluster->update([
+                'name' => $request->name,
+                ...($cluster->deployed_at ? [
+                    'update'      => true,
+                    'approved_at' => null,
+                ] : []),
+            ]);
+
             return redirect()->route('cluster.index', ['project_id' => $project_id])->with('success', __('Cluster updated successfully.'));
         }
 
@@ -346,5 +638,40 @@ class ClusterController extends Controller
         }
 
         return redirect()->back()->with('warning', __('Ooops, something went wrong.'));
+    }
+
+    /**
+     * Approve the cluster.
+     *
+     * @param string $project_id
+     * @param string $cluster_id
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function action_approve(string $project_id, string $cluster_id)
+    {
+        Validator::make([
+            'cluster_id' => $cluster_id,
+        ], [
+            'cluster_id' => ['required', 'string'],
+        ])->validate();
+
+        $cluster = Cluster::where('id', '=', $cluster_id)
+            ->whereNotNull('template_id')
+            ->first();
+
+        if (empty($cluster)) {
+            return redirect()->back()->with('warning', __('Ooops, something went wrong.'));
+        }
+
+        if ($cluster->approved_at) {
+            return redirect()->back()->with('warning', __('Cluster already approved.'));
+        }
+
+        $cluster->update([
+            'approved_at' => Carbon::now(),
+        ]);
+
+        return redirect()->back()->with('success', __('Cluster approved.'));
     }
 }

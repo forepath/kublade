@@ -65,6 +65,22 @@
                             </div>
                         </div>
 
+                        @if ($template->type === 'cluster')
+                            <div class="row mb-3">
+                                <label for="sort" class="col-md-4 col-form-label text-md-end">{{ __('Sort') }}</label>
+
+                                <div class="col-md-6">
+                                    <input id="sort" type="number" class="form-control @error('sort') is-invalid @enderror" name="sort" value="{{ old('sort') ?? $file->sort ?? 0 }}">
+
+                                    @error('sort')
+                                        <span class="invalid-feedback" role="alert">
+                                            <strong>{{ $message }}</strong>
+                                        </span>
+                                    @enderror
+                                </div>
+                            </div>
+                        @endif
+
                         <div class="row mb-0">
                             <div class="col-md-8 offset-md-4">
                                 <button type="submit" class="btn btn-primary">

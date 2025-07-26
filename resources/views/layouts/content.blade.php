@@ -96,7 +96,7 @@
                         @else
                             @can('templates.view')
                                 <li class="nav-item">
-                                    <a class="nav-link" href="{{ route('template.index') }}">{{ __('Templates') }}</a>
+                                    <a class="nav-link" href="{{ route('template.index', ['type' => request()->type ?? 'application']) }}">{{ __('Templates') }}</a>
                                 </li>
                             @endcan
                             @canany(['users.view', 'roles.view'])

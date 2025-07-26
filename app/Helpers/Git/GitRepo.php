@@ -218,7 +218,8 @@ class GitRepo
             }
         }
 
-        $result = Process::path($this->repoPath)
+        $result = Process::timeout(config('process.timeout'))
+            ->path($this->repoPath)
             ->env($env)
             ->run($command);
 

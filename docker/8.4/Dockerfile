@@ -60,6 +60,10 @@ RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/s
     chmod 700 get_helm.sh && \
     ./get_helm.sh
 
+RUN curl -Lo kops https://github.com/kubernetes/kops/releases/download/$(curl -s https://api.github.com/repos/kubernetes/kops/releases/latest | grep tag_name | cut -d '"' -f 4)/kops-linux-amd64 && \
+    chmod +x kops && \
+    mv kops /usr/local/bin/kops
+
 RUN setcap "cap_net_bind_service=+ep" /usr/bin/php8.4
 
 RUN userdel -r ubuntu

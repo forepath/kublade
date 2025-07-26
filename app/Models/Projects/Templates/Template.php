@@ -26,6 +26,7 @@ use Illuminate\Support\Collection;
  *
  *     @OA\Property(property="id", type="string", format="uuid", example="123e4567-e89b-12d3-a456-426614174000"),
  *     @OA\Property(property="user_id", type="integer", format="int64", example="1"),
+ *     @OA\Property(property="type", type="string", enum={"application", "cluster"}, example="application"),
  *     @OA\Property(property="name", type="string", example="Template 1"),
  *     @OA\Property(property="netpol", type="boolean", example=false),
  *     @OA\Property(property="created_at", type="string", format="date-time", example="2021-01-01 00:00:00", nullable=true),
@@ -37,6 +38,7 @@ use Illuminate\Support\Collection;
  *
  * @property string $id
  * @property string $user_id
+ * @property string $type
  * @property string $name
  * @property bool   $netpol
  * @property Carbon $created_at
@@ -125,6 +127,16 @@ class Template extends Model
     {
         return $this->hasMany(TemplateFile::class, 'template_id', 'id')
             ->whereNull('template_directory_id');
+    }
+
+    /**
+     * Relation to template environment variables.
+     *
+     * @return HasMany
+     */
+    public function environmentVariables(): HasMany
+    {
+        return $this->hasMany(TemplateEnvironmentVariable::class, 'template_id', 'id');
     }
 
     /**

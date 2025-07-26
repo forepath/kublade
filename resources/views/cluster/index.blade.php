@@ -37,8 +37,16 @@
                                         <td>
                                             @if ($cluster->status === \App\Models\Kubernetes\Clusters\Status::STATUS_ONLINE)
                                                 <span class="badge bg-success">{{ __('Online') }}</span>
-                                            @else
+                                            @elseif ($cluster->status === \App\Models\Kubernetes\Clusters\Status::STATUS_OFFLINE)
                                                 <span class="badge bg-danger">{{ __('Offline') }}</span>
+                                            @elseif ($cluster->status === \App\Models\Kubernetes\Clusters\Status::STATUS_PENDING)
+                                                <span class="badge bg-info">{{ __('Pending') }}</span>
+                                            @elseif ($cluster->status === \App\Models\Kubernetes\Clusters\Status::STATUS_APPROVING)
+                                                <span class="badge bg-primary">{{ __('Approving') }}</span>
+                                            @elseif ($cluster->status === \App\Models\Kubernetes\Clusters\Status::STATUS_UPDATING)
+                                                <span class="badge bg-warning text-body">{{ __('Updating') }}</span>
+                                            @elseif ($cluster->status === \App\Models\Kubernetes\Clusters\Status::STATUS_DELETING)
+                                                <span class="badge bg-danger">{{ __('Deleting') }}</span>
                                             @endif
                                         </td>
                                         <td>
@@ -152,6 +160,11 @@
                                         </td>
                                         <td>
                                             <div class="d-flex gap-2">
+                                                @can('projects.' . request()->get('project')->id . ' . clusters.' . $cluster->id . '.approve')
+                                                    <a href="{{ route('cluster.approve.action', ['project_id' => request()->get('project')->id, 'cluster_id' => $cluster->id]) }}" class="btn btn-sm btn-success text-white{{ $cluster->approved_at || empty($cluster->template) ? ' disabled' : '' }}" title="{{ __('Approve') }}">
+                                                        <i class="bi bi-check2"></i>
+                                                    </a>
+                                                @endcan
                                                 <a href="{{ route('cluster.update', ['project_id' => $cluster->project_id, 'cluster_id' => $cluster->id]) }}" class="btn btn-sm btn-warning" title="{{ __('Update') }}">
                                                     <i class="bi bi-pencil"></i>
                                                 </a>
