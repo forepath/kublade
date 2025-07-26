@@ -59,7 +59,7 @@
                                         <tr>
                                             <td class="p-0" colspan="5">
                                                 <div class="collapse border-top p-3" id="activityProperties{{ $activity->id }}">
-                                                    <pre class="mb-0">{{ json_encode($activity->properties, JSON_PRETTY_PRINT) }}</pre>
+                                                    <pre class="mb-0 code-wrap">{{ json_encode($activity->properties, JSON_PRETTY_PRINT) }}</pre>
                                                 </div>
                                             </td>
                                         </tr>
