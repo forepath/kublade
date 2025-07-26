@@ -3,7 +3,7 @@
     "name": "forepath/kublade",
     "type": "project",
     "description": "The easy and interactive Kubernetes deployment templating engine.",
-    "version": "1.1.1",
+    "version": "1.2.0",
     "keywords": [
         "laravel",
         "kubernetes",
