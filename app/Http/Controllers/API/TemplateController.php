@@ -85,6 +85,15 @@ use Illuminate\Support\Facades\Validator;
  *     @OA\Schema(type="string")
  * )
  *
+ * @OA\Parameter(
+ *     name="env_variable_id",
+ *     in="path",
+ *     required=true,
+ *     description="The ID of the environment variable",
+ *
+ *     @OA\Schema(type="string")
+ * )
+ *
  * @author Marcel Menk <marcel.menk@ipvx.io>
  */
 class TemplateController extends Controller
@@ -98,7 +107,7 @@ class TemplateController extends Controller
      *     tags={"Templates"},
      *
      *     @OA\Parameter(ref="#/components/parameters/cursor"),
-     *     @OA\Parameter(ref="#/components/parameters/type", default="application"),
+     *     @OA\Parameter(ref="#/components/parameters/type"),
      *
      *     @OA\Response(
      *         response=200,
