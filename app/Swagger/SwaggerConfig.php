@@ -39,7 +39,7 @@ use OpenApi\Annotations as OA;
  *         required=false,
  *         description="Type of an object",
  *
- *         @OA\Schema(type="string")
+ *         @OA\Schema(type="string", default="application")
  *     ),
  *
  *     @OA\Response(
