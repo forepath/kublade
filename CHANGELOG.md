@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1](https://github.com/forepath/kublade/compare/v1.1.0...v1.1.1) (2025-07-26)
+
+
+### Bug Fixes
+
+* api specification generation ([ec94f0d](https://github.com/forepath/kublade/commit/ec94f0d63305bb47a1d0e4f32a8586da67d198bb))
+
 ## [1.1.0](https://github.com/forepath/kublade/compare/v1.0.2...v1.1.0) (2025-07-26)
 
 
