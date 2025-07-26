@@ -15,10 +15,10 @@
         <div class="col-md-12">
             @if (empty(request()->get('project')))
                 @if (!$onboarding_dismissed)
-                    <div class="card mb-3 border border-secondary">
+                    <div class="card mb-3 border border-secondary get-started">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             {{ __('Getting started') }}
-                            <a href="{{ route('onboarding.dismiss') }}" class="text-white">
+                            <a href="{{ route('onboarding.dismiss') }}" class="text-white" title="{{ __('Dismiss') }}">
                                 <i class="bi bi-x"></i>
                             </a>
                         </div>
