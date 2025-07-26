@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2](https://github.com/forepath/kublade/compare/v1.0.1...v1.0.2) (2025-07-26)
+
+
+### Bug Fixes
+
+* activity properties wrapping ([7638a54](https://github.com/forepath/kublade/commit/7638a54722e00dafbb2208f481a84ea873e7129e))
+
 ## [1.0.1](https://github.com/forepath/kublade/compare/v1.0.0...v1.0.1) (2025-07-25)
 
 
