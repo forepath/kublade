@@ -53,6 +53,10 @@ class ProjectController extends Controller
         return view('project.index', [
             'projects'   => Project::paginate(10),
             'statistics' => Project::allStatistics(),
+            ...(!$request->project_id ? [
+                'onboarding_status'    => $request->get('onboarding_status'),
+                'onboarding_dismissed' => !empty(Auth::user()->onboarding_dismissed_at),
+            ] : []),
         ]);
     }
 

@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\PermissionSet;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
@@ -160,5 +161,19 @@ class UserController extends Controller
         }
 
         return redirect()->back()->with('warning', 'Ooops, something went wrong.');
+    }
+
+    /**
+     * Dismiss the onboarding.
+     *
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function action_dismiss_onboarding()
+    {
+        Auth::user()->update([
+            'onboarding_dismissed_at' => Carbon::now(),
+        ]);
+
+        return redirect()->route('project.index')->with('success', 'Onboarding dismissed successfully.');
     }
 }

@@ -14,6 +14,129 @@
     <div class="row justify-content-center">
         <div class="col-md-12">
             @if (empty(request()->get('project')))
+                @if (!$onboarding_dismissed)
+                    <div class="card mb-3 border border-secondary get-started">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            {{ __('Getting started') }}
+                            <a href="{{ route('onboarding.dismiss') }}" class="text-white" title="{{ __('Dismiss') }}">
+                                <i class="bi bi-x"></i>
+                            </a>
+                        </div>
+                        <div class="card-body text-center p-5">
+                            <div class="row d-flex justify-content-center row-gap-4">
+                                <div class="col-md-4">
+                                    <div class="card mb-3 border h-100">
+                                        <div class="card-body d-flex flex-column justify-content-between">
+                                            <div>
+                                                <i class="bi bi-folder-plus fs-1 text-secondary position-relative">
+                                                    @if ($onboarding_status->projects)
+                                                        <span class="indicator-success"></span>
+                                                    @else
+                                                        <span class="indicator-warning"></span>
+                                                    @endif
+                                                </i>
+                                                <h5 class="card-title">{{ __('Create a project') }}</h5>
+                                            </div>
+                                            @if (!$onboarding_status->projects)
+                                                <a href="{{ route('project.add') }}" class="btn btn-sm btn-primary mt-2">{{ __('Create') }}</a>
+                                            @else
+                                                <a href="#" class="btn btn-sm btn-secondary mt-2 disabled">{{ __('Done') }}</a>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card mb-3 border h-100">
+                                        <div class="card-body d-flex flex-column justify-content-between">
+                                            <div>
+                                                <i class="bi bi-file-earmark-plus fs-1 text-secondary position-relative">
+                                                    @if ($onboarding_status->cluster_provisioner_templates)
+                                                        <span class="indicator-success"></span>
+                                                    @else
+                                                        <span class="indicator-warning"></span>
+                                                    @endif
+                                                </i>
+                                                <h5 class="card-title">{{ __('Create a cluster provisioner template') }}</h5>
+                                            </div>
+                                            @if (!$onboarding_status->cluster_provisioner_templates)
+                                                <a href="{{ route('template.add', ['type' => 'cluster']) }}" class="btn btn-sm btn-primary mt-2">{{ __('Create') }}</a>
+                                            @else
+                                                <a href="#" class="btn btn-sm btn-secondary mt-2 disabled">{{ __('Done') }}</a>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card mb-3 border h-100">
+                                        <div class="card-body d-flex flex-column justify-content-between">
+                                            <div>
+                                                <i class="bi bi-hdd-stack fs-1 text-secondary position-relative">
+                                                    @if ($onboarding_status->clusters)
+                                                        <span class="indicator-success"></span>
+                                                    @else
+                                                        <span class="indicator-warning"></span>
+                                                    @endif
+                                                </i>
+                                                <h5 class="card-title">{{ __('Create a cluster') }}</h5>
+                                            </div>
+                                            @if (empty($onboarding_status->first_project))
+                                                <a href="{{ route('project.add') }}" class="btn btn-sm btn-primary mt-2">{{ __('Create a project') }}</a>
+                                            @elseif (!$onboarding_status->clusters)
+                                                <a href="{{ route('cluster.add', ['project_id' => $onboarding_status->first_project->id]) }}" class="btn btn-sm btn-primary mt-2">{{ __('Create') }}</a>
+                                            @else
+                                                <a href="#" class="btn btn-sm btn-secondary mt-2 disabled">{{ __('Done') }}</a>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card mb-3 border h-100">
+                                        <div class="card-body d-flex flex-column justify-content-between">
+                                            <div>
+                                                <i class="bi bi-file-earmark-plus fs-1 text-secondary position-relative">
+                                                    @if ($onboarding_status->application_templates)
+                                                        <span class="indicator-success"></span>
+                                                    @else
+                                                        <span class="indicator-warning"></span>
+                                                    @endif
+                                                </i>
+                                                <h5 class="card-title">{{ __('Create an application template') }}</h5>
+                                            </div>
+                                            @if (!$onboarding_status->application_templates)
+                                                <a href="{{ route('template.add', ['type' => 'application']) }}" class="btn btn-sm btn-primary mt-2">{{ __('Create') }}</a>
+                                            @else
+                                                <a href="#" class="btn btn-sm btn-secondary mt-2 disabled">{{ __('Done') }}</a>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card mb-3 border h-100">
+                                        <div class="card-body d-flex flex-column justify-content-between">
+                                            <div>
+                                                <i class="bi bi-box fs-1 text-secondary position-relative">
+                                                    @if ($onboarding_status->applications)
+                                                        <span class="indicator-success"></span>
+                                                    @else
+                                                        <span class="indicator-warning"></span>
+                                                    @endif
+                                                </i>
+                                                <h5 class="card-title">{{ __('Create an application') }}</h5>
+                                            </div>
+                                            @if (empty($onboarding_status->first_project))
+                                                <a href="{{ route('project.add') }}" class="btn btn-sm btn-primary mt-2">{{ __('Create a project') }}</a>
+                                            @elseif (!$onboarding_status->applications)
+                                                <a href="{{ route('deployment.add', ['project_id' => $onboarding_status->first_project->id]) }}" class="btn btn-sm btn-primary mt-2">{{ __('Create') }}</a>
+                                            @else
+                                                <a href="#" class="btn btn-sm btn-secondary mt-2 disabled">{{ __('Done') }}</a>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
                 <div class="card mb-3 border border-secondary">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         {{ __('Infrastructure') }}
