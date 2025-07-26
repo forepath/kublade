@@ -58,6 +58,7 @@ class UserTest extends TestCase
             'name',
             'email',
             'password',
+            'onboarding_dismissed_at',
         ];
 
         $this->assertEquals($fillable, $this->user->getFillable());
@@ -82,9 +83,10 @@ class UserTest extends TestCase
     public function itHasCorrectCasts(): void
     {
         $casts = [
-            'email_verified_at' => 'datetime',
-            'password'          => 'hashed',
-            'id'                => 'int',
+            'email_verified_at'       => 'datetime',
+            'password'                => 'hashed',
+            'onboarding_dismissed_at' => 'datetime',
+            'id'                      => 'int',
         ];
 
         $this->assertEquals($casts, $this->user->getCasts());

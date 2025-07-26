@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\CheckVersion;
+use App\Http\Middleware\IdentifyOnboardingStatus;
 use App\Http\Middleware\IdentifyProject;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -24,7 +26,10 @@ Route::middleware([
     'auth',
     IdentifyProject::class,
     CheckVersion::class,
+    IdentifyOnboardingStatus::class,
 ])->group(function () {
+    Route::get('/onboarding/dismiss', [App\Http\Controllers\UserController::class, 'action_dismiss_onboarding'])->name('onboarding.dismiss');
+
     Route::get('/activities', [App\Http\Controllers\ActivityController::class, 'page_index'])->name('activity.index')->middleware('ui.permission.guard:activities.view');
 
     Route::get('/projects', [App\Http\Controllers\ProjectController::class, 'page_index'])->name('project.index')->middleware('ui.permission.guard:projects.view');

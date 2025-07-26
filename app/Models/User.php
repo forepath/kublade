@@ -31,6 +31,7 @@ use Tymon\JWTAuth\Contracts\JWTSubject;
  *     @OA\Property(property="email_verified_at", type="string", format="date-time", example="2021-01-01T00:00:00Z", nullable=true),
  *     @OA\Property(property="password", type="string", example="password123"),
  *     @OA\Property(property="remember_token", type="string", example="remember_token123", nullable=true),
+ *     @OA\Property(property="onboarding_dismissed_at", type="string", format="date-time", example="2021-01-01 00:00:00", nullable=true),
  *     @OA\Property(property="created_at", type="string", format="date-time", example="2021-01-01 00:00:00", nullable=true),
  *     @OA\Property(property="updated_at", type="string", format="date-time", example="2021-01-01 00:00:00", nullable=true),
  * )
@@ -51,7 +52,7 @@ use Tymon\JWTAuth\Contracts\JWTSubject;
  * @property string $email
  * @property string $password
  * @property string $remember_token
- * @property string $email_verified_at
+ * @property string $onboarding_dismissed_at
  * @property string $created_at
  * @property string $updated_at
  *
@@ -85,6 +86,7 @@ class User extends Authenticatable implements JWTSubject
         'name',
         'email',
         'password',
+        'onboarding_dismissed_at',
     ];
 
     /**
@@ -105,8 +107,9 @@ class User extends Authenticatable implements JWTSubject
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password'          => 'hashed',
+            'email_verified_at'       => 'datetime',
+            'password'                => 'hashed',
+            'onboarding_dismissed_at' => 'datetime',
         ];
     }
 
