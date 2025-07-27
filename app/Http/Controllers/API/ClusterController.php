@@ -590,6 +590,8 @@ class ClusterController extends Controller
 
         if ($cluster = Cluster::where('id', $cluster_id)->first()) {
             if (! empty($cluster->template)) {
+                $validationRules = [];
+
                 $cluster->template->fields->each(function (TemplateField $field) use ($cluster, &$validationRules) {
                     if (! $field->set_on_update) {
                         return;
