@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.2](https://github.com/forepath/kublade/compare/v1.2.1...v1.2.2) (2025-07-27)
+
+
+### Bug Fixes
+
+* validation rules array default ([b52a736](https://github.com/forepath/kublade/commit/b52a7368b457db461fe33768b9343df5c752b08c))
+
 ## [1.2.1](https://github.com/forepath/kublade/compare/v1.2.0...v1.2.1) (2025-07-26)
 
 
