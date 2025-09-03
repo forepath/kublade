@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.3](https://github.com/forepath/kublade/compare/v1.2.2...v1.2.3) (2025-09-03)
+
+
+### Bug Fixes
+
+* card theming ([1f764a5](https://github.com/forepath/kublade/commit/1f764a56b44fa002096ce9a25a2470ea47f64bb2))
+
 ## [1.2.2](https://github.com/forepath/kublade/compare/v1.2.1...v1.2.2) (2025-07-27)
 
 
