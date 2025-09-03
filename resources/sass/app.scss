@@ -294,8 +294,11 @@ main {
     }
 
     &.border-secondary {
+        border: 0 !important;
+
         .card-header, .card-footer {
             background-color: var(--bs-secondary);
+            border-radius: 0;
             color: var(--bs-white);
             display: flex;
             align-items: center;
